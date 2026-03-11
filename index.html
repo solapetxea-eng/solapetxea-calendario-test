@@ -310,6 +310,27 @@
       text-align:center
     }
 
+    .langSwitch{
+      display:flex;
+      justify-content:flex-end;
+      align-items:center;
+      gap:8px;
+      margin-bottom:10px;
+    }
+    .langSwitch label{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:700;
+    }
+    .langSwitch select{
+      border:1px solid #d7dbe0;
+      border-radius:10px;
+      padding:8px 10px;
+      font:inherit;
+      background:#fff;
+      font-size:13px;
+    }
+
     .modal h3{margin:0 0 8px;font-size:22px}
     .small{color:#6d7480;margin-bottom:12px;font-size:14px;line-height:1.45}
 
@@ -535,13 +556,22 @@
 
 <div id="overlay" class="overlay" aria-hidden="true">
   <div class="modal">
+    <div class="langSwitch">
+      <label for="langSelect" id="langLabel">Idioma</label>
+      <select id="langSelect">
+        <option value="es">Español</option>
+        <option value="eu">Euskara</option>
+        <option value="en">English</option>
+      </select>
+    </div>
+
     <h3 id="modalDate">Consulta tu estancia</h3>
     <div class="small" id="modalText">Elige el alojamiento que quieres consultar por WhatsApp.</div>
 
     <div class="summary" id="summaryBox">
-      <div class="summaryRow"><span>Entrada</span><strong id="summaryCheckin">vie 13/03/2026</strong></div>
-      <div class="summaryRow"><span>Salida</span><strong id="summaryCheckout">sáb 14/03/2026</strong></div>
-      <div class="summaryRow"><span>Noches</span><strong id="summaryNights">1</strong></div>
+      <div class="summaryRow"><span id="summaryCheckinLabel">Entrada</span><strong id="summaryCheckin">vie 13/03/2026</strong></div>
+      <div class="summaryRow"><span id="summaryCheckoutLabel">Salida</span><strong id="summaryCheckout">sáb 14/03/2026</strong></div>
+      <div class="summaryRow"><span id="summaryNightsLabel">Noches</span><strong id="summaryNights">1</strong></div>
     </div>
 
     <div class="choiceWrap" id="choices"></div>
@@ -551,53 +581,53 @@
 
       <div class="row">
         <div class="field">
-          <label>Nombre</label>
+          <label id="labelName">Nombre</label>
           <input id="name" type="text" placeholder="Tu nombre">
         </div>
         <div class="field">
-          <label>Teléfono</label>
+          <label id="labelPhone">Teléfono</label>
           <input id="phoneUser" type="text" placeholder="Tu teléfono">
         </div>
       </div>
 
       <div class="row">
         <div class="field">
-          <label>Entrada</label>
+          <label id="labelCheckin">Entrada</label>
           <input id="checkin" type="text" readonly>
         </div>
         <div class="field">
-          <label>Salida</label>
+          <label id="labelCheckout">Salida</label>
           <input id="checkout" type="text" readonly>
         </div>
       </div>
 
       <div class="row">
         <div class="field">
-          <label>Noches</label>
+          <label id="labelNights">Noches</label>
           <input id="nights" type="number" min="1" value="1" readonly>
         </div>
         <div class="field">
-          <label>Huéspedes</label>
+          <label id="labelGuests">Huéspedes</label>
           <select id="guests">
-            <option value="1">1 huésped</option>
-            <option value="2" selected>2 huéspedes</option>
+            <option value="1" id="optionGuest1">1 huésped</option>
+            <option value="2" id="optionGuest2" selected>2 huéspedes</option>
           </select>
         </div>
       </div>
 
       <div class="priceBox">
-        <div class="priceBoxTitle">Precio orientativo</div>
+        <div class="priceBoxTitle" id="priceBoxTitle">Precio orientativo</div>
         <div class="priceMain" id="formPriceMain">95 €</div>
         <div class="priceSub" id="formPriceSub">Precio calculado según las noches seleccionadas.</div>
         <div id="discountTag" class="discountTag" style="display:none;">-10 % por ocupación individual</div>
       </div>
 
       <div class="field">
-        <label>Mensaje</label>
+        <label id="labelMessage">Mensaje</label>
         <textarea id="notes" rows="3" placeholder="Escribe aquí si quieres añadir algo"></textarea>
       </div>
 
-      <div class="helper">
+      <div class="helper" id="helperText">
         Vamos a abrir WhatsApp con tu consulta preparada.<br>
         Solo tendrás que pulsar enviar.
       </div>
@@ -644,6 +674,7 @@
   const formPriceMain = document.getElementById('formPriceMain');
   const formPriceSub = document.getElementById('formPriceSub');
   const discountTag = document.getElementById('discountTag');
+  const langSelect = document.getElementById('langSelect');
 
   let activeMonth = new Date().getFullYear() === year ? new Date().getMonth() : 0;
 
@@ -652,7 +683,174 @@
   let selectedStart = '';
   let selectedEnd = '';
   let selectedUnit = '';
+  let currentModalUnits = [];
   let calendarViewTracked = false;
+
+  const translations = {
+    es: {
+      langLabel: 'Idioma',
+      modalTitle: 'Consulta tu estancia',
+      modalIntro: 'Elige el alojamiento que quieres consultar por WhatsApp.',
+      noCommitment: 'Consulta sin compromiso. Primero confirmamos disponibilidad contigo.',
+      summaryCheckin: 'Entrada',
+      summaryCheckout: 'Salida',
+      summaryNights: 'Noches',
+      consult_oketa: 'Consultar Oketa',
+      consult_orixol: 'Consultar Orixol',
+      formTitle_oketa: 'Consultar Oketa',
+      formTitle_orixol: 'Consultar Orixol',
+      name: 'Nombre',
+      phone: 'Teléfono',
+      checkin: 'Entrada',
+      checkout: 'Salida',
+      nights: 'Noches',
+      guests: 'Huéspedes',
+      guest1: '1 huésped',
+      guest2: '2 huéspedes',
+      estimatedPrice: 'Precio orientativo',
+      estimatedBase: 'Precio calculado según las noches seleccionadas.',
+      estimatedAdjusted: '{unit} · Precio base {base} · Precio ajustado por 1 huésped.',
+      estimatedNormal: '{unit} · Precio calculado según las noches seleccionadas.',
+      discount: '-10 % por ocupación individual',
+      message: 'Mensaje',
+      messagePlaceholder: 'Escribe aquí si quieres añadir algo',
+      helper: 'Vamos a abrir WhatsApp con tu consulta preparada.<br>Solo tendrás que pulsar enviar.',
+      send: 'Enviar por WhatsApp',
+      back: 'Volver',
+      close: 'Cerrar',
+      minStayFail: 'La estancia seleccionada no cumple las condiciones mínimas para los alojamientos disponibles.',
+      unitPrice_oketa: 'Oketa: 95 € baja / 120 € alta · Total orientativo: {total}',
+      unitPrice_orixol: 'Orixol: 80 € baja / 90 € alta · Total orientativo: {total}',
+      waGreeting: 'Consulta de disponibilidad – Solapetxea',
+      waAccommodation: 'Alojamiento',
+      waCheckin: 'Entrada',
+      waCheckout: 'Salida',
+      waNights: 'Noches',
+      waGuests: 'Huéspedes',
+      waEstimatedPrice: 'Precio orientativo',
+      waDiscount: 'Descuento aplicado: 10 % por ocupación individual',
+      waBasePrice: 'Tarifa base sin descuento',
+      waName: 'Nombre',
+      waPhone: 'Teléfono',
+      waExtra: 'Mensaje adicional',
+      waThanks: 'Gracias.'
+    },
+    eu: {
+      langLabel: 'Hizkuntza',
+      modalTitle: 'Zure egonaldia kontsultatu',
+      modalIntro: 'Aukeratu WhatsApp bidez kontsultatu nahi duzun ostatua.',
+      noCommitment: 'Konpromisorik gabeko kontsulta. Lehenik zurekin erabilgarritasuna baieztatuko dugu.',
+      summaryCheckin: 'Sarrera',
+      summaryCheckout: 'Irteera',
+      summaryNights: 'Gauak',
+      consult_oketa: 'Kontsultatu Oketa',
+      consult_orixol: 'Kontsultatu Orixol',
+      formTitle_oketa: 'Kontsultatu Oketa',
+      formTitle_orixol: 'Kontsultatu Orixol',
+      name: 'Izena',
+      phone: 'Telefonoa',
+      checkin: 'Sarrera',
+      checkout: 'Irteera',
+      nights: 'Gauak',
+      guests: 'Gonbidatuak',
+      guest1: '1 gonbidatu',
+      guest2: '2 gonbidatu',
+      estimatedPrice: 'Prezio orientagarria',
+      estimatedBase: 'Hautatutako gauen arabera kalkulatutako prezioa.',
+      estimatedAdjusted: '{unit} · Oinarrizko prezioa {base} · 1 gonbidatuarentzako egokitutako prezioa.',
+      estimatedNormal: '{unit} · Hautatutako gauen arabera kalkulatutako prezioa.',
+      discount: '-10 % pertsona bakarreko okupazioagatik',
+      message: 'Mezua',
+      messagePlaceholder: 'Idatzi hemen zerbait gehitu nahi baduzu',
+      helper: 'Zure kontsulta prestatuta duen WhatsApp irekiko dugu.<br>Bidali sakatu besterik ez duzu egin beharko.',
+      send: 'Bidali WhatsApp bidez',
+      back: 'Atzera',
+      close: 'Itxi',
+      minStayFail: 'Hautatutako egonaldiak ez ditu erabilgarri dauden ostatuen gutxieneko baldintzak betetzen.',
+      unitPrice_oketa: 'Oketa: 95 € baxua / 120 € altua · Guztira orientagarria: {total}',
+      unitPrice_orixol: 'Orixol: 80 € baxua / 90 € altua · Guztira orientagarria: {total}',
+      waGreeting: 'Erabilgarritasun kontsulta – Solapetxea',
+      waAccommodation: 'Ostatua',
+      waCheckin: 'Sarrera',
+      waCheckout: 'Irteera',
+      waNights: 'Gauak',
+      waGuests: 'Gonbidatuak',
+      waEstimatedPrice: 'Prezio orientagarria',
+      waDiscount: 'Aplikatutako deskontua: %10 pertsona bakarreko okupazioagatik',
+      waBasePrice: 'Deskonturik gabeko oinarrizko tarifa',
+      waName: 'Izena',
+      waPhone: 'Telefonoa',
+      waExtra: 'Mezu gehigarria',
+      waThanks: 'Eskerrik asko.'
+    },
+    en: {
+      langLabel: 'Language',
+      modalTitle: 'Check your stay',
+      modalIntro: 'Choose the accommodation you want to ask about on WhatsApp.',
+      noCommitment: 'No-obligation enquiry. We will confirm availability with you first.',
+      summaryCheckin: 'Check-in',
+      summaryCheckout: 'Check-out',
+      summaryNights: 'Nights',
+      consult_oketa: 'Ask about Oketa',
+      consult_orixol: 'Ask about Orixol',
+      formTitle_oketa: 'Ask about Oketa',
+      formTitle_orixol: 'Ask about Orixol',
+      name: 'Name',
+      phone: 'Phone',
+      checkin: 'Check-in',
+      checkout: 'Check-out',
+      nights: 'Nights',
+      guests: 'Guests',
+      guest1: '1 guest',
+      guest2: '2 guests',
+      estimatedPrice: 'Estimated price',
+      estimatedBase: 'Price calculated according to the selected nights.',
+      estimatedAdjusted: '{unit} · Base price {base} · Adjusted price for 1 guest.',
+      estimatedNormal: '{unit} · Price calculated according to the selected nights.',
+      discount: '-10% for single occupancy',
+      message: 'Message',
+      messagePlaceholder: 'Write here if you want to add something',
+      helper: 'We are about to open WhatsApp with your enquiry prepared.<br>You will only need to press send.',
+      send: 'Send via WhatsApp',
+      back: 'Back',
+      close: 'Close',
+      minStayFail: 'The selected stay does not meet the minimum stay conditions for the available accommodation.',
+      unitPrice_oketa: 'Oketa: €95 low / €120 high · Estimated total: {total}',
+      unitPrice_orixol: 'Orixol: €80 low / €90 high · Estimated total: {total}',
+      waGreeting: 'Availability enquiry – Solapetxea',
+      waAccommodation: 'Accommodation',
+      waCheckin: 'Check-in',
+      waCheckout: 'Check-out',
+      waNights: 'Nights',
+      waGuests: 'Guests',
+      waEstimatedPrice: 'Estimated price',
+      waDiscount: 'Applied discount: 10% for single occupancy',
+      waBasePrice: 'Base rate without discount',
+      waName: 'Name',
+      waPhone: 'Phone',
+      waExtra: 'Additional message',
+      waThanks: 'Thank you.'
+    }
+  };
+
+  function detectLanguage() {
+    const browserLang = (navigator.language || 'es').toLowerCase();
+    if (browserLang.startsWith('eu')) return 'eu';
+    if (browserLang.startsWith('en')) return 'en';
+    return 'es';
+  }
+
+  let currentLang = detectLanguage();
+  langSelect.value = currentLang;
+  document.documentElement.lang = currentLang;
+
+  function t(key, vars = {}) {
+    let text = (translations[currentLang] && translations[currentLang][key]) || translations.es[key] || key;
+    Object.keys(vars).forEach(k => {
+      text = text.replaceAll(`{${k}}`, vars[k]);
+    });
+    return text;
+  }
 
   function track(eventName, params = {}) {
     if (typeof gtag === 'function') {
@@ -940,11 +1138,13 @@
     return `${value.toLocaleString('es-ES', { minimumFractionDigits: value % 1 ? 2 : 0, maximumFractionDigits: 2 })} €`;
   }
 
+  function getUnitName(unit){
+    return unit === 'oketa' ? 'Oketa' : 'Orixol';
+  }
+
   function getUnitPriceText(unit, startIso, endIso){
     const total = getStayBasePrice(unit, startIso, endIso);
-    if(unit === 'oketa') return `Oketa: 95 € baja / 120 € alta · Total orientativo: ${euro(total)}`;
-    if(unit === 'orixol') return `Orixol: 80 € baja / 90 € alta · Total orientativo: ${euro(total)}`;
-    return '';
+    return t(`unitPrice_${unit}`, { total: euro(total) });
   }
 
   function updateFormPrice(){
@@ -952,24 +1152,92 @@
     const guests = Number(guestsInput.value || 2);
     const base = getStayBasePrice(selectedUnit, selectedStart, selectedEnd);
     const total = getAdjustedStayPrice(selectedUnit, selectedStart, selectedEnd, guests);
-    const unitText = selectedUnit === 'oketa' ? 'Oketa' : 'Orixol';
+    const unitText = getUnitName(selectedUnit);
 
     formPriceMain.textContent = euro(total);
 
     if(guests === 1){
       discountTag.style.display = 'inline-block';
-      formPriceSub.textContent = `${unitText} · Precio base ${euro(base)} · Precio ajustado por 1 huésped.`;
+      discountTag.textContent = t('discount');
+      formPriceSub.textContent = t('estimatedAdjusted', { unit: unitText, base: euro(base) });
     } else {
       discountTag.style.display = 'none';
-      formPriceSub.textContent = `${unitText} · Precio calculado según las noches seleccionadas.`;
+      formPriceSub.textContent = t('estimatedNormal', { unit: unitText });
+    }
+  }
+
+  function renderChoiceButtons(){
+    choices.innerHTML = '';
+    const nights = diffNights(selectedStart, selectedEnd);
+
+    if(currentModalUnits.includes('oketa')){
+      const min = getMinNights('oketa', selectedStart);
+      if(nights >= min){
+        addChoice(t('consult_oketa'), 'oketa');
+      }
+    }
+    if(currentModalUnits.includes('orixol')){
+      const min = getMinNights('orixol', selectedStart);
+      if(nights >= min){
+        addChoice(t('consult_orixol'), 'orixol');
+      }
+    }
+  }
+
+  function updateModalTexts(){
+    modalDate.textContent = t('modalTitle');
+
+    summaryCheckinLabel.textContent = t('summaryCheckin');
+    summaryCheckoutLabel.textContent = t('summaryCheckout');
+    summaryNightsLabel.textContent = t('summaryNights');
+
+    document.getElementById('langLabel').textContent = t('langLabel');
+    document.getElementById('labelName').textContent = t('name');
+    document.getElementById('labelPhone').textContent = t('phone');
+    document.getElementById('labelCheckin').textContent = t('checkin');
+    document.getElementById('labelCheckout').textContent = t('checkout');
+    document.getElementById('labelNights').textContent = t('nights');
+    document.getElementById('labelGuests').textContent = t('guests');
+    document.getElementById('labelMessage').textContent = t('message');
+    document.getElementById('priceBoxTitle').textContent = t('estimatedPrice');
+    document.getElementById('helperText').innerHTML = t('helper');
+    document.getElementById('sendWa').textContent = t('send');
+    document.getElementById('backBtn').textContent = t('back');
+    document.getElementById('closeBtn').textContent = t('close');
+
+    document.getElementById('name').placeholder = t('name');
+    document.getElementById('phoneUser').placeholder = t('phone');
+    document.getElementById('notes').placeholder = t('messagePlaceholder');
+    document.getElementById('optionGuest1').textContent = t('guest1');
+    document.getElementById('optionGuest2').textContent = t('guest2');
+
+    if(selectedStart && selectedEnd){
+      const priceLines = [];
+      if(currentModalUnits.includes('oketa') && diffNights(selectedStart, selectedEnd) >= getMinNights('oketa', selectedStart)){
+        priceLines.push(getUnitPriceText('oketa', selectedStart, selectedEnd));
+      }
+      if(currentModalUnits.includes('orixol') && diffNights(selectedStart, selectedEnd) >= getMinNights('orixol', selectedStart)){
+        priceLines.push(getUnitPriceText('orixol', selectedStart, selectedEnd));
+      }
+
+      if(priceLines.length){
+        modalText.innerHTML = `${t('modalIntro')}<br><br><strong>${t('noCommitment')}</strong><br><br>${priceLines.join('<br>')}`;
+      } else {
+        modalText.textContent = t('minStayFail');
+      }
+    }
+
+    renderChoiceButtons();
+
+    if(selectedUnit){
+      formTitle.textContent = selectedUnit === 'oketa' ? t('formTitle_oketa') : t('formTitle_orixol');
+      updateFormPrice();
     }
   }
 
   function openModal(startIso, endIso, availableUnits){
     selectedUnit = '';
-
-    modalDate.textContent = 'Consulta tu estancia';
-    modalText.innerHTML = 'Elige el alojamiento que quieres consultar por WhatsApp.<br><br><strong>Consulta sin compromiso.</strong> Primero confirmamos disponibilidad contigo.';
+    currentModalUnits = [...availableUnits];
 
     summaryCheckin.textContent = formatDate(startIso);
     summaryCheckout.textContent = formatDate(endIso);
@@ -980,33 +1248,10 @@
     nightsInput.value = diffNights(startIso, endIso);
     guestsInput.value = '2';
 
-    choices.innerHTML = '';
     form.classList.remove('show');
     closeArea.style.display = 'flex';
 
-    const priceLines = [];
-
-    if(availableUnits.includes('oketa')){
-      const min = getMinNights('oketa', startIso);
-      if(diffNights(startIso,endIso) >= min){
-        addChoice('Consultar Oketa', 'oketa');
-        priceLines.push(getUnitPriceText('oketa', startIso, endIso));
-      }
-    }
-    if(availableUnits.includes('orixol')){
-      const min = getMinNights('orixol', startIso);
-      if(diffNights(startIso,endIso) >= min){
-        addChoice('Consultar Orixol', 'orixol');
-        priceLines.push(getUnitPriceText('orixol', startIso, endIso));
-      }
-    }
-
-    if(priceLines.length){
-      modalText.innerHTML += '<br><br>' + priceLines.join('<br>');
-    } else {
-      modalText.textContent = 'La estancia seleccionada no cumple las condiciones mínimas para los alojamientos disponibles.';
-    }
-
+    updateModalTexts();
     overlay.classList.add('show');
   }
 
@@ -1014,13 +1259,14 @@
     const b = document.createElement('button');
     b.className = `btn ${type === 'oketa' ? 'oketa' : 'orixol'}`;
     b.textContent = label;
-    b.onclick = ()=>showForm(type, label);
+    b.dataset.unit = type;
+    b.onclick = ()=>showForm(type);
     choices.appendChild(b);
   }
 
-  function showForm(type, label){
+  function showForm(type){
     selectedUnit = type;
-    formTitle.textContent = label;
+    formTitle.textContent = type === 'oketa' ? t('formTitle_oketa') : t('formTitle_orixol');
     form.classList.add('show');
     closeArea.style.display = 'none';
     updateFormPrice();
@@ -1028,13 +1274,20 @@
     track(type === 'oketa' ? 'select_oketa' : 'select_orixol', {
       checkin: selectedStart,
       checkout: selectedEnd,
-      nights: diffNights(selectedStart, selectedEnd)
+      nights: diffNights(selectedStart, selectedEnd),
+      language: currentLang
     });
   }
 
   function closeModal(){
     overlay.classList.remove('show');
   }
+
+  langSelect.addEventListener('change', ()=>{
+    currentLang = langSelect.value;
+    document.documentElement.lang = currentLang;
+    updateModalTexts();
+  });
 
   document.getElementById('prevMonth').onclick = ()=>{
     activeMonth = (activeMonth + 11) % 12;
@@ -1064,7 +1317,7 @@
     const guests = guestsInput.value || '2';
     const notes = document.getElementById('notes').value.trim();
 
-    const unitText = selectedUnit === 'oketa' ? 'Oketa' : 'Orixol';
+    const unitText = getUnitName(selectedUnit);
     const basePrice = getStayBasePrice(selectedUnit, selectedStart, selectedEnd);
     const totalPrice = getAdjustedStayPrice(selectedUnit, selectedStart, selectedEnd, guests);
     const discountApplied = Number(guests) === 1;
@@ -1075,28 +1328,29 @@
       checkout: selectedEnd,
       nights: diffNights(selectedStart, selectedEnd),
       guests: Number(guests),
-      total_price: totalPrice
+      total_price: totalPrice,
+      language: currentLang
     });
 
     const msg = [
-      'Consulta de disponibilidad – Solapetxea',
+      t('waGreeting'),
       '',
-      `Alojamiento: ${unitText}`,
-      `Entrada: ${formatDate(selectedStart)}`,
-      `Salida: ${formatDate(selectedEnd)}`,
-      `Noches: ${diffNights(selectedStart, selectedEnd)}`,
-      `Huéspedes: ${guests}`,
+      `${t('waAccommodation')}: ${unitText}`,
+      `${t('waCheckin')}: ${formatDate(selectedStart)}`,
+      `${t('waCheckout')}: ${formatDate(selectedEnd)}`,
+      `${t('waNights')}: ${diffNights(selectedStart, selectedEnd)}`,
+      `${t('waGuests')}: ${guests}`,
       '',
-      `Precio orientativo: ${euro(totalPrice)}`,
-      discountApplied ? `Descuento aplicado: 10 % por ocupación individual` : '',
+      `${t('waEstimatedPrice')}: ${euro(totalPrice)}`,
+      discountApplied ? t('waDiscount') : '',
       '',
-      `Tarifa base sin descuento: ${euro(basePrice)}`,
+      `${t('waBasePrice')}: ${euro(basePrice)}`,
       '',
-      name ? `Nombre: ${name}` : '',
-      phoneUser ? `Teléfono: ${phoneUser}` : '',
-      notes ? `Mensaje adicional: ${notes}` : '',
+      name ? `${t('waName')}: ${name}` : '',
+      phoneUser ? `${t('waPhone')}: ${phoneUser}` : '',
+      notes ? `${t('waExtra')}: ${notes}` : '',
       '',
-      'Gracias.'
+      t('waThanks')
     ].filter(Boolean).join('\n');
 
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
@@ -1121,7 +1375,7 @@
       statusEl.textContent = '';
 
       if (!calendarViewTracked) {
-        track('calendar_view', { year });
+        track('calendar_view', { year, language: currentLang });
         calendarViewTracked = true;
       }
     }catch(err){
@@ -1131,6 +1385,7 @@
     }
   }
 
+  updateModalTexts();
   loadCalendar();
 </script>
 </body>
