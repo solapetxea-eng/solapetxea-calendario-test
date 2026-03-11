@@ -1,0 +1,993 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Solapetxea · Disponibilidad</title>
+  <style>
+    :root{
+      --bg:#f5f2ee;
+      --card:#fbfaf8;
+      --line:#d8cec5;
+      --text:#2d2a26;
+      --muted:#7b756f;
+      --free:#a9d3a1;
+      --oketa:#e66bb0;
+      --orixol:#7157e8;
+      --full-a:#e66bb0;
+      --full-b:#7157e8;
+      --season-low:#2f7cff;
+      --season-high:#111111;
+      --shadow:0 8px 22px rgba(0,0,0,.08);
+      --radius:18px;
+      --range:#1f2937;
+      --range-soft:rgba(31,41,55,.11);
+    }
+
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      background:var(--bg);
+      color:var(--text)
+    }
+    .wrap{max-width:1200px;margin:18px auto;padding:0 14px}
+
+    .hero{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      padding:20px 18px 16px;
+      text-align:center
+    }
+
+    .eyebrow{
+      display:inline-block;
+      font-size:10px;
+      letter-spacing:.18em;
+      text-transform:uppercase;
+      padding:4px 8px;
+      border:1px solid var(--line);
+      border-radius:999px;
+      color:var(--muted);
+      margin-bottom:8px;
+      background:#f3efe9
+    }
+
+    h1{margin:6px 0 8px;font-size:clamp(28px,4vw,44px);line-height:1.05}
+
+    .legend{
+      display:flex;
+      justify-content:center;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:10px
+    }
+
+    .chip{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      padding:7px 11px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:white;
+      font-size:13px
+    }
+
+    .dot{
+      width:14px;height:14px;border-radius:999px;border:1px solid rgba(0,0,0,.08)
+    }
+    .dot.free{background:var(--free)}
+    .dot.oketa{background:var(--oketa)}
+    .dot.orixol{background:var(--orixol)}
+    .dot.full{background:linear-gradient(135deg,var(--full-a) 49%,var(--full-b) 51%)}
+    .dot.low{background:var(--season-low)}
+    .dot.high{background:var(--season-high)}
+
+    .direct{
+      margin:14px auto 0;
+      max-width:820px;
+      background:#fffaf5;
+      border:1px solid var(--line);
+      border-radius:16px;
+      padding:14px 16px 12px;
+      box-shadow:var(--shadow)
+    }
+    .direct strong{
+      display:block;
+      font-size:18px;
+      margin-bottom:4px
+    }
+    .direct span{
+      color:var(--muted);
+      font-size:14px
+    }
+
+    .statusWrap{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:14px;
+      min-height:24px;
+    }
+    .status{
+      font-size:12px;
+      color:var(--muted);
+      min-height:16px
+    }
+    .status.warn{color:#8a3b2f;font-weight:700}
+    .clearBtn{
+      display:none;
+      border:none;
+      background:#fff;
+      border:1px solid var(--line);
+      color:var(--text);
+      border-radius:999px;
+      padding:7px 12px;
+      font-size:12px;
+      font-weight:800;
+      cursor:pointer;
+      box-shadow:var(--shadow);
+    }
+    .clearBtn.show{display:inline-flex;align-items:center;gap:6px}
+
+    .mobileNav{
+      display:none;
+      align-items:center;
+      justify-content:center;
+      gap:10px;
+      margin-top:14px
+    }
+    .navBtn{
+      border:none;
+      background:#fff;
+      border:1px solid var(--line);
+      border-radius:12px;
+      padding:10px 14px;
+      font-size:14px;
+      font-weight:800;
+      color:var(--text);
+      box-shadow:var(--shadow);
+      cursor:pointer
+    }
+    .monthLabel{
+      min-width:140px;
+      text-align:center;
+      font-size:15px;
+      font-weight:800;
+      text-transform:lowercase
+    }
+
+    .months{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:16px;
+      margin-top:16px
+    }
+
+    .month{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:14px;
+      box-shadow:var(--shadow);
+      padding:12px
+    }
+
+    .month h2{
+      text-align:center;
+      font-size:26px;
+      margin:2px 0 12px;
+      text-transform:lowercase
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(7,1fr);
+      gap:1px;
+      background:var(--line);
+      border:1px solid var(--line)
+    }
+
+    .cell,.dow{
+      background:#efebe6;
+      min-height:48px;
+      position:relative
+    }
+
+    .dow{
+      min-height:28px;
+      font-size:12px;
+      font-weight:700;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      color:#4d4742
+    }
+
+    .cell.muted{background:#e7e1db;color:#9b938b}
+
+    .cell.day{
+      cursor:pointer;
+      transition:transform .12s ease, box-shadow .15s ease, filter .15s ease
+    }
+
+    .cell.day:hover{
+      transform:translateY(-1px);
+      box-shadow:inset 0 0 0 2px rgba(255,255,255,.45), 0 0 0 2px rgba(255,255,255,.18);
+      filter:brightness(1.04)
+    }
+
+    .cell.free{background:var(--free)}
+    .cell.oketa{background:var(--oketa)}
+    .cell.orixol{background:var(--orixol);color:#fff}
+    .cell.full{background:linear-gradient(135deg,var(--full-a) 49%,var(--full-b) 51%);color:#fff}
+
+    .num{
+      position:absolute;
+      top:5px;
+      left:6px;
+      font-size:12px;
+      font-weight:700;
+      opacity:.95;
+      z-index:3
+    }
+
+    .season{
+      position:absolute;
+      left:0;right:0;bottom:0;
+      height:10%;
+      min-height:6px;
+      z-index:1
+    }
+    .season.low{background:var(--season-low)}
+    .season.high{background:var(--season-high)}
+
+    .cell.in-range::after{
+      content:"";
+      position:absolute;
+      inset:0;
+      background:var(--range-soft);
+      z-index:2;
+      pointer-events:none;
+    }
+    .cell.selected-start::before,
+    .cell.selected-end::before{
+      content:"";
+      position:absolute;
+      inset:2px;
+      border:2px solid var(--range);
+      border-radius:2px;
+      z-index:4;
+      pointer-events:none;
+    }
+    .cell.selected-start .num,
+    .cell.selected-end .num{
+      font-weight:900;
+    }
+
+    .overlay{
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,.33);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:14px;
+      z-index:20
+    }
+    .overlay.show{display:flex}
+
+    .modal{
+      width:min(100%,500px);
+      max-height:min(88vh,720px);
+      overflow-y:auto;
+      background:#fff;
+      border-radius:18px;
+      box-shadow:0 18px 40px rgba(0,0,0,.22);
+      padding:20px 18px 18px;
+      text-align:center
+    }
+
+    .modal h3{margin:0 0 8px;font-size:22px}
+    .small{color:#6d7480;margin-bottom:12px;font-size:14px}
+
+    .summary{
+      text-align:left;
+      background:#faf7f3;
+      border:1px solid #e6dfd7;
+      border-radius:14px;
+      padding:12px 14px;
+      margin:12px 0 14px
+    }
+    .summaryRow{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      padding:4px 0;
+      font-size:15px
+    }
+    .summaryRow strong{font-weight:800}
+
+    .choiceWrap{
+      display:flex;
+      gap:10px;
+      justify-content:center;
+      flex-wrap:wrap;
+      margin:14px 0
+    }
+
+    .btn{
+      border:none;
+      border-radius:10px;
+      padding:13px 16px;
+      font-size:15px;
+      font-weight:800;
+      color:#fff;
+      cursor:pointer;
+      min-width:145px
+    }
+    .btn.oketa{background:var(--oketa)}
+    .btn.orixol{background:var(--orixol)}
+    .btn.gray{background:#bcc1c7;color:#25303a}
+
+    .form{
+      display:none;
+      text-align:left;
+      margin-top:14px;
+      border-top:1px solid #ece7e2;
+      padding-top:14px
+    }
+    .form.show{display:block}
+    .form h4{margin:0 0 10px;font-size:17px}
+
+    .field{margin-bottom:9px}
+    .field label{display:block;font-size:12px;color:#5f666f;margin-bottom:4px}
+    .field input,.field textarea{
+      width:100%;
+      padding:10px 11px;
+      border-radius:10px;
+      border:1px solid #d7dbe0;
+      font:inherit;
+      font-size:15px
+    }
+    .field textarea{min-height:78px;resize:vertical}
+
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+
+    .actions{
+      display:flex;
+      gap:9px;
+      justify-content:center;
+      flex-wrap:wrap;
+      margin-top:12px
+    }
+
+    .send{
+      background:#25D366;
+      color:#fff;
+      border:none;
+      border-radius:10px;
+      padding:12px 16px;
+      font-size:15px;
+      font-weight:800;
+      cursor:pointer
+    }
+
+    .ghost{
+      background:#e4e7eb;
+      color:#2e3740;
+      border:none;
+      border-radius:10px;
+      padding:12px 16px;
+      font-size:15px;
+      font-weight:800;
+      cursor:pointer
+    }
+
+    @media (max-width: 980px){
+      .months{grid-template-columns:repeat(2,1fr)}
+    }
+
+    @media (max-width: 700px){
+      .wrap{padding:0 10px}
+      .hero{padding:16px 12px 14px}
+      .legend{gap:8px}
+      .chip{font-size:12px;padding:6px 9px}
+      .direct strong{font-size:17px}
+      .direct span{font-size:13px}
+      .mobileNav{display:flex}
+      .months{display:block}
+      .month{display:none;padding:10px}
+      .month.active{display:block}
+      .month h2{display:none}
+      .cell,.dow{min-height:auto;aspect-ratio:1/1}
+      .dow{aspect-ratio:auto;min-height:26px;font-size:11px}
+      .num{font-size:13px;top:6px;left:7px}
+      .overlay{padding:10px}
+      .modal{width:min(100%,400px);max-height:84vh;padding:16px 12px 14px;border-radius:16px}
+      .modal h3{font-size:19px}
+      .small{font-size:13px;margin-bottom:10px}
+      .choiceWrap{gap:8px;margin:12px 0}
+      .btn,.send,.ghost{width:100%;min-width:0;padding:12px 12px;font-size:14px}
+      .form{margin-top:12px;padding-top:12px}
+      .form h4{font-size:16px;margin-bottom:9px}
+      .field{margin-bottom:8px}
+      .field input,.field textarea{padding:9px 10px;font-size:14px}
+      .field textarea{min-height:68px}
+      .row{grid-template-columns:1fr}
+      .summaryRow{font-size:14px}
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <section class="hero">
+    <div class="eyebrow">Solapetxea · disponibilidad anual</div>
+    <h1>Calendario de disponibilidad</h1>
+
+    <div class="legend">
+      <div class="chip"><span class="dot free"></span> Libre</div>
+      <div class="chip"><span class="dot oketa"></span> Oketa ocupado</div>
+      <div class="chip"><span class="dot orixol"></span> Orixol ocupado</div>
+      <div class="chip"><span class="dot full"></span> Completo</div>
+      <div class="chip"><span class="dot low"></span> Temporada baja</div>
+      <div class="chip"><span class="dot high"></span> Temporada alta</div>
+    </div>
+
+    <div class="direct">
+      <strong>Reserva directa aquí</strong>
+      <span>Sin comisiones de plataforma · Calendario actualizado en tiempo real</span>
+    </div>
+
+    <div class="statusWrap">
+      <div class="status" id="status"></div>
+      <button id="clearSelectionBtn" class="clearBtn">Borrar selección</button>
+    </div>
+  </section>
+
+  <div class="mobileNav" id="mobileNav">
+    <button class="navBtn" id="prevMonth">‹</button>
+    <div class="monthLabel" id="monthLabel">enero</div>
+    <button class="navBtn" id="nextMonth">›</button>
+  </div>
+
+  <section id="months" class="months"></section>
+</div>
+
+<div id="overlay" class="overlay" aria-hidden="true">
+  <div class="modal">
+    <h3 id="modalDate">Consulta tu estancia</h3>
+    <div class="small" id="modalText">Elige el alojamiento que quieres consultar por WhatsApp.</div>
+
+    <div class="summary" id="summaryBox">
+      <div class="summaryRow"><span>Entrada</span><strong id="summaryCheckin">vie 13/03/2026</strong></div>
+      <div class="summaryRow"><span>Salida</span><strong id="summaryCheckout">sáb 14/03/2026</strong></div>
+      <div class="summaryRow"><span>Noches</span><strong id="summaryNights">1</strong></div>
+    </div>
+
+    <div class="choiceWrap" id="choices"></div>
+
+    <div id="form" class="form">
+      <h4 id="formTitle">Consultar</h4>
+
+      <div class="row">
+        <div class="field">
+          <label>Nombre</label>
+          <input id="name" type="text" placeholder="Tu nombre">
+        </div>
+        <div class="field">
+          <label>Teléfono</label>
+          <input id="phoneUser" type="text" placeholder="Tu teléfono">
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label>Entrada</label>
+          <input id="checkin" type="text" readonly>
+        </div>
+        <div class="field">
+          <label>Salida</label>
+          <input id="checkout" type="text" readonly>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label>Noches</label>
+          <input id="nights" type="number" min="1" value="1" readonly>
+        </div>
+        <div class="field">
+          <label>Adultos</label>
+          <input id="adults" type="number" min="1" value="2">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Niños</label>
+        <input id="children" type="number" min="0" value="0">
+      </div>
+
+      <div class="field">
+        <label>Mensaje</label>
+        <textarea id="notes" rows="3" placeholder="Escribe aquí si quieres añadir algo"></textarea>
+      </div>
+
+      <div class="actions">
+        <button class="send" id="sendWa">Enviar por WhatsApp</button>
+        <button class="ghost" id="backBtn">Volver</button>
+      </div>
+    </div>
+
+    <div class="actions" id="closeArea">
+      <button class="ghost" id="closeBtn">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const monthNames = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const weekdayNames = ['dom','lun','mar','mié','jue','vie','sáb'];
+  const dows = ['dom','lun','mar','mié','jue','vie','sáb'];
+  const year = 2026;
+  const phone = '34617414914';
+
+  const statusEl = document.getElementById('status');
+  const monthsEl = document.getElementById('months');
+  const overlay = document.getElementById('overlay');
+  const monthLabel = document.getElementById('monthLabel');
+  const modalDate = document.getElementById('modalDate');
+  const modalText = document.getElementById('modalText');
+  const choices = document.getElementById('choices');
+  const form = document.getElementById('form');
+  const closeArea = document.getElementById('closeArea');
+  const clearSelectionBtn = document.getElementById('clearSelectionBtn');
+
+  const summaryCheckin = document.getElementById('summaryCheckin');
+  const summaryCheckout = document.getElementById('summaryCheckout');
+  const summaryNights = document.getElementById('summaryNights');
+
+  const checkinInput = document.getElementById('checkin');
+  const checkoutInput = document.getElementById('checkout');
+  const nightsInput = document.getElementById('nights');
+  const formTitle = document.getElementById('formTitle');
+
+  let activeMonth = new Date().getFullYear() === year ? new Date().getMonth() : 0;
+
+  let occupancyRaw = { orixol:{}, oketa:{} };
+  let dayStatus = {};
+  let selectedStart = '';
+  let selectedEnd = '';
+  let selectedUnit = '';
+
+  function pad(v){ return String(v).padStart(2,'0'); }
+
+  function formatDate(iso){
+    const [y,m,d] = iso.split('-').map(Number);
+    const date = new Date(y, m-1, d);
+    const weekday = weekdayNames[date.getDay()];
+    return `${weekday} ${pad(d)}/${pad(m)}/${y}`;
+  }
+
+  function isoToDate(iso){
+    const [y,m,d] = iso.split('-').map(Number);
+    return new Date(y, m-1, d);
+  }
+
+  function addDays(iso, days){
+    const dt = isoToDate(iso);
+    dt.setDate(dt.getDate() + days);
+    return `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}`;
+  }
+
+  function diffNights(startIso, endIso){
+    const ms = isoToDate(endIso) - isoToDate(startIso);
+    return Math.round(ms / 86400000);
+  }
+
+  function getSeason(iso){
+    const d = isoToDate(iso);
+    const y = d.getFullYear();
+
+    const highRanges = [
+      [new Date(y,5,15), new Date(y,8,15)],
+      [new Date(y,11,4), new Date(y,11,8)],
+      [new Date(y,9,9), new Date(y,9,12)],
+      [new Date(y,11,24), new Date(y,11,31)]
+    ];
+
+    for(const [from,to] of highRanges){
+      if(d >= from && d <= to) return 'high';
+    }
+    return 'low';
+  }
+
+  function buildDayStatus(occupancy){
+    const out = {};
+    for(let m=0;m<12;m++){
+      const dim = new Date(year,m+1,0).getDate();
+      for(let day=1; day<=dim; day++){
+        const iso = `${year}-${pad(m+1)}-${pad(day)}`;
+        const o = !!(occupancy.orixol && occupancy.orixol[iso]);
+        const k = !!(occupancy.oketa && occupancy.oketa[iso]);
+        out[iso] = o && k ? 'full' : o ? 'orixol' : k ? 'oketa' : 'free';
+      }
+    }
+    return out;
+  }
+
+  function isAnyUnitAvailable(iso){
+    const o = !!occupancyRaw.orixol[iso];
+    const k = !!occupancyRaw.oketa[iso];
+    return !(o && k);
+  }
+
+  function getAvailableUnitsForRange(startIso, endIso){
+    const nights = diffNights(startIso, endIso);
+    if(nights < 1) return [];
+
+    let oketaFree = true;
+    let orixolFree = true;
+
+    for(let i=0; i<nights; i++){
+      const nightIso = addDays(startIso, i);
+      if(occupancyRaw.oketa[nightIso]) oketaFree = false;
+      if(occupancyRaw.orixol[nightIso]) orixolFree = false;
+    }
+
+    const units = [];
+    if(oketaFree) units.push('oketa');
+    if(orixolFree) units.push('orixol');
+    return units;
+  }
+
+  function updateClearButton(){
+    clearSelectionBtn.classList.toggle('show', !!selectedStart);
+  }
+
+  function clearSelection(){
+    selectedStart = '';
+    selectedEnd = '';
+    document.querySelectorAll('.cell.day').forEach(cell=>{
+      cell.classList.remove('selected-start','selected-end','in-range');
+    });
+    statusEl.textContent = '';
+    statusEl.classList.remove('warn');
+    updateClearButton();
+  }
+
+  function paintSelection(){
+    document.querySelectorAll('.cell.day').forEach(cell=>{
+      cell.classList.remove('selected-start','selected-end','in-range');
+      const iso = cell.dataset.date;
+
+      if(selectedStart && iso === selectedStart) cell.classList.add('selected-start');
+      if(selectedEnd && iso === selectedEnd) cell.classList.add('selected-end');
+
+      if(selectedStart && selectedEnd){
+        if(isoToDate(iso) > isoToDate(selectedStart) && isoToDate(iso) < isoToDate(selectedEnd)){
+          cell.classList.add('in-range');
+        }
+      }
+    });
+    updateClearButton();
+  }
+
+  function renderAll(){
+    monthsEl.innerHTML = '';
+    for(let m=0; m<12; m++) monthsEl.appendChild(renderMonth(m));
+    updateMobileMonth();
+    paintSelection();
+  }
+
+  function renderMonth(monthIndex){
+    const card = document.createElement('div');
+    card.className = 'month';
+    card.dataset.month = monthIndex;
+
+    const title = document.createElement('h2');
+    title.textContent = monthNames[monthIndex];
+    card.appendChild(title);
+
+    const grid = document.createElement('div');
+    grid.className = 'grid';
+
+    dows.forEach(d=>{
+      const x = document.createElement('div');
+      x.className = 'dow';
+      x.textContent = d;
+      grid.appendChild(x);
+    });
+
+    const first = new Date(year, monthIndex, 1);
+    const startDay = first.getDay();
+    const daysInMonth = new Date(year, monthIndex+1, 0).getDate();
+    const prevMonthDays = new Date(year, monthIndex, 0).getDate();
+
+    for(let i=0;i<startDay;i++){
+      const c = document.createElement('div');
+      c.className = 'cell muted';
+      const n = document.createElement('div');
+      n.className = 'num';
+      n.textContent = prevMonthDays - startDay + i + 1;
+      c.appendChild(n);
+      grid.appendChild(c);
+    }
+
+    for(let day=1; day<=daysInMonth; day++){
+      const iso = `${year}-${pad(monthIndex+1)}-${pad(day)}`;
+      const status = dayStatus[iso] || 'free';
+
+      const c = document.createElement('div');
+      c.className = `cell day ${status}`;
+      c.dataset.date = iso;
+      c.dataset.status = status;
+
+      const n = document.createElement('div');
+      n.className = 'num';
+      n.textContent = day;
+      c.appendChild(n);
+
+      const s = document.createElement('div');
+      s.className = `season ${getSeason(iso)}`;
+      c.appendChild(s);
+
+      c.addEventListener('click', ()=>handleDayClick(iso));
+      grid.appendChild(c);
+    }
+
+    const totalCells = startDay + daysInMonth;
+    const extra = (7 - (totalCells % 7)) % 7;
+
+    for(let i=1;i<=extra;i++){
+      const c = document.createElement('div');
+      c.className = 'cell muted';
+      const n = document.createElement('div');
+      n.className = 'num';
+      n.textContent = i;
+      c.appendChild(n);
+      grid.appendChild(c);
+    }
+
+    card.appendChild(grid);
+    return card;
+  }
+
+  function handleDayClick(iso){
+    statusEl.classList.remove('warn');
+
+    if(!selectedStart){
+      if(!isAnyUnitAvailable(iso)){
+        statusEl.textContent = 'La fecha de entrada debe ser un día con al menos un alojamiento disponible.';
+        statusEl.classList.add('warn');
+        return;
+      }
+      selectedStart = iso;
+      selectedEnd = '';
+      paintSelection();
+      statusEl.textContent = `Entrada seleccionada: ${formatDate(iso)}. Ahora elige la fecha de salida.`;
+      return;
+    }
+
+    if(selectedStart === iso && !selectedEnd){
+      clearSelection();
+      return;
+    }
+
+    if(isoToDate(iso) <= isoToDate(selectedStart)){
+      selectedStart = iso;
+      selectedEnd = '';
+      paintSelection();
+      statusEl.textContent = `Nueva entrada seleccionada: ${formatDate(iso)}. Ahora elige la salida.`;
+      return;
+    }
+
+    const units = getAvailableUnitsForRange(selectedStart, iso);
+    if(!units.length){
+      statusEl.textContent = 'No hay ningún alojamiento disponible para todo ese rango. Elige otras fechas.';
+      statusEl.classList.add('warn');
+      return;
+    }
+
+    selectedEnd = iso;
+    paintSelection();
+    statusEl.textContent = '';
+    openModal(selectedStart, selectedEnd, units);
+  }
+
+  function updateMobileMonth(){
+    const cards = document.querySelectorAll('.month');
+    cards.forEach((card, i) => card.classList.toggle('active', i === activeMonth));
+    monthLabel.textContent = monthNames[activeMonth];
+  }
+
+  
+  function getMinNights(unit, startIso){
+    const d = isoToDate(startIso);
+    const m = d.getMonth()+1;
+    if(unit==='oketa'){
+      if(m===7 || m===8) return 5;
+      if(m===5 || m===6 || m===9) return 2;
+      return 1;
+    }
+    if(unit==='orixol'){
+      if(m===7 || m===8) return 2;
+      return 1;
+    }
+    return 1;
+  }
+
+  function getNightRate(unit, iso){
+    const season = getSeason(iso);
+    if(unit === 'oketa') return season === 'high' ? 120 : 95;
+    if(unit === 'orixol') return season === 'high' ? 90 : 80;
+    return 0;
+  }
+
+  function getStayPrice(unit, startIso, endIso){
+    const nights = diffNights(startIso, endIso);
+    let total = 0;
+    for(let i=0; i<nights; i++) total += getNightRate(unit, addDays(startIso, i));
+    return total;
+  }
+
+  function getUnitPriceText(unit, startIso, endIso){
+    const total = getStayPrice(unit, startIso, endIso);
+    if(unit === 'oketa') return `Oketa: 95 € baja / 120 € alta · Total orientativo: ${total} €`;
+    if(unit === 'orixol') return `Orixol: 80 € baja / 90 € alta · Total orientativo: ${total} €`;
+    return '';
+  }
+
+  function openModal(startIso, endIso, availableUnits){
+    selectedUnit = '';
+
+    modalDate.textContent = 'Consulta tu estancia';
+    modalText.textContent = 'Elige el alojamiento que quieres consultar por WhatsApp.';
+
+    summaryCheckin.textContent = formatDate(startIso);
+    summaryCheckout.textContent = formatDate(endIso);
+    summaryNights.textContent = diffNights(startIso, endIso);
+
+    checkinInput.value = formatDate(startIso);
+    checkoutInput.value = formatDate(endIso);
+    nightsInput.value = diffNights(startIso, endIso);
+
+    choices.innerHTML = '';
+    form.classList.remove('show');
+    closeArea.style.display = 'flex';
+
+    const priceLines = [];
+
+    if(availableUnits.includes('oketa')){
+      const min = getMinNights('oketa', startIso);
+      if(diffNights(startIso,endIso) >= min){
+        addChoice('Consultar Oketa', 'oketa');
+        priceLines.push(getUnitPriceText('oketa', startIso, endIso));
+      }
+    }
+    if(availableUnits.includes('orixol')){
+      const min = getMinNights('orixol', startIso);
+      if(diffNights(startIso,endIso) >= min){
+        addChoice('Consultar Orixol', 'orixol');
+        priceLines.push(getUnitPriceText('orixol', startIso, endIso));
+      }
+    }
+
+    if(priceLines.length){
+      modalText.innerHTML = 'Elige el alojamiento que quieres consultar por WhatsApp.<br><br>' + priceLines.join('<br>');
+    } else {
+      modalText.textContent = 'La estancia seleccionada no cumple las condiciones mínimas para los alojamientos disponibles.';
+    }
+
+    overlay.classList.add('show');
+  }
+
+  function addChoice(label, type){
+    const b = document.createElement('button');
+    b.className = `btn ${type === 'oketa' ? 'oketa' : 'orixol'}`;
+    b.textContent = label;
+    b.onclick = ()=>showForm(type, label);
+    choices.appendChild(b);
+  }
+
+  function showForm(type, label){
+    selectedUnit = type;
+    formTitle.textContent = label;
+    form.classList.add('show');
+    closeArea.style.display = 'none';
+  }
+
+  function closeModal(){
+    overlay.classList.remove('show');
+  }
+
+  document.getElementById('prevMonth').onclick = ()=>{
+    activeMonth = (activeMonth + 11) % 12;
+    updateMobileMonth();
+  };
+
+  document.getElementById('nextMonth').onclick = ()=>{
+    activeMonth = (activeMonth + 1) % 12;
+    updateMobileMonth();
+  };
+
+  document.getElementById('closeBtn').onclick = closeModal;
+  document.getElementById('backBtn').onclick = ()=>{
+    form.classList.remove('show');
+    closeArea.style.display = 'flex';
+  };
+  clearSelectionBtn.onclick = clearSelection;
+
+  overlay.addEventListener('click', e=>{
+    if(e.target === overlay) closeModal();
+  });
+
+  document.getElementById('sendWa').onclick = ()=>{
+    const name = document.getElementById('name').value.trim();
+    const phoneUser = document.getElementById('phoneUser').value.trim();
+    const adults = document.getElementById('adults').value || '2';
+    const children = document.getElementById('children').value || '0';
+    const notes = document.getElementById('notes').value.trim();
+
+    const unitText = selectedUnit === 'oketa' ? 'Oketa' : 'Orixol';
+    const totalPrice = getStayPrice(selectedUnit, selectedStart, selectedEnd);
+    const priceText = selectedUnit === 'oketa'
+      ? 'Tarifa: 95 € temporada baja / 120 € temporada alta'
+      : 'Tarifa: 80 € temporada baja / 90 € temporada alta';
+
+    const msg = [
+      'Hola Rober,',
+      '',
+      'He visto vuestra disponibilidad en la web de Solapetxea y me gustaría consultar esta estancia:',
+      '',
+      `Alojamiento: ${unitText}`,
+      `Entrada: ${formatDate(selectedStart)}`,
+      `Salida: ${formatDate(selectedEnd)}`,
+      `Noches: ${diffNights(selectedStart, selectedEnd)}`,
+      priceText,
+      `Precio orientativo de la estancia: ${totalPrice} €`,
+      `Adultos: ${adults}`,
+      `Niños: ${children}`,
+      '',
+      name ? `Nombre: ${name}` : '',
+      phoneUser ? `Teléfono: ${phoneUser}` : '',
+      notes ? `Comentario: ${notes}` : '',
+      '',
+      'Gracias.'
+    ].filter(Boolean).join('\n');
+
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+  };
+
+  async function loadCalendar(){
+    try{
+      statusEl.textContent = 'Cargando disponibilidad…';
+
+      const res = await fetch(`/api/calendar?year=${year}`, { cache: 'no-store' });
+      const json = await res.json();
+
+      if(!res.ok || !json.ok) throw new Error(json.error || 'No se pudo cargar el calendario');
+
+      occupancyRaw = {
+        orixol: json.occupancy?.orixol || {},
+        oketa: json.occupancy?.oketa || {}
+      };
+
+      dayStatus = buildDayStatus(occupancyRaw);
+      renderAll();
+      statusEl.textContent = '';
+    }catch(err){
+      statusEl.textContent = 'No se ha podido cargar la disponibilidad.';
+      statusEl.classList.add('warn');
+      monthsEl.innerHTML = '<div style="grid-column:1/-1;background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;text-align:center">Error cargando calendarios. Revisa la función de Cloudflare Pages.</div>';
+    }
+  }
+
+  loadCalendar();
+</script>
+</body>
+</html>
