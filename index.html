@@ -4,6 +4,16 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Solapetxea · Disponibilidad</title>
+
+  <!-- Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-X3MZXH82R2"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-X3MZXH82R2');
+  </script>
+
   <style>
     :root{
       --bg:#f5f2ee;
@@ -22,6 +32,7 @@
       --radius:18px;
       --range:#1f2937;
       --range-soft:rgba(31,41,55,.11);
+      --success:#25D366;
     }
 
     *{box-sizing:border-box}
@@ -103,6 +114,13 @@
     .direct span{
       color:var(--muted);
       font-size:14px
+    }
+
+    .microcopy{
+      margin-top:10px;
+      font-size:13px;
+      color:var(--muted);
+      line-height:1.45;
     }
 
     .statusWrap{
@@ -282,8 +300,8 @@
     .overlay.show{display:flex}
 
     .modal{
-      width:min(100%,500px);
-      max-height:min(88vh,720px);
+      width:min(100%,520px);
+      max-height:min(88vh,760px);
       overflow-y:auto;
       background:#fff;
       border-radius:18px;
@@ -293,7 +311,7 @@
     }
 
     .modal h3{margin:0 0 8px;font-size:22px}
-    .small{color:#6d7480;margin-bottom:12px;font-size:14px}
+    .small{color:#6d7480;margin-bottom:12px;font-size:14px;line-height:1.45}
 
     .summary{
       text-align:left;
@@ -346,17 +364,60 @@
 
     .field{margin-bottom:9px}
     .field label{display:block;font-size:12px;color:#5f666f;margin-bottom:4px}
-    .field input,.field textarea{
+    .field input,.field select,.field textarea{
       width:100%;
       padding:10px 11px;
       border-radius:10px;
       border:1px solid #d7dbe0;
       font:inherit;
-      font-size:15px
+      font-size:15px;
+      background:#fff;
     }
     .field textarea{min-height:78px;resize:vertical}
+    .field input[readonly]{
+      background:#f3f4f6;
+      color:#58616b;
+    }
 
     .row{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+
+    .priceBox{
+      background:#f7fbf7;
+      border:1px solid #d6ead8;
+      border-radius:12px;
+      padding:12px 14px;
+      margin:6px 0 10px;
+    }
+    .priceBoxTitle{
+      font-size:12px;
+      color:#5f666f;
+      margin-bottom:6px;
+      text-transform:uppercase;
+      letter-spacing:.06em;
+      font-weight:700;
+    }
+    .priceMain{
+      font-size:24px;
+      font-weight:900;
+      color:var(--text);
+      margin-bottom:4px;
+    }
+    .priceSub{
+      font-size:13px;
+      color:var(--muted);
+      line-height:1.4;
+    }
+    .discountTag{
+      display:inline-block;
+      margin-top:6px;
+      padding:4px 8px;
+      border-radius:999px;
+      background:#ecfdf3;
+      color:#11643a;
+      border:1px solid #b7e4c7;
+      font-size:12px;
+      font-weight:800;
+    }
 
     .actions{
       display:flex;
@@ -367,7 +428,7 @@
     }
 
     .send{
-      background:#25D366;
+      background:var(--success);
       color:#fff;
       border:none;
       border-radius:10px;
@@ -388,6 +449,14 @@
       cursor:pointer
     }
 
+    .helper{
+      margin-top:10px;
+      text-align:center;
+      font-size:13px;
+      color:var(--muted);
+      line-height:1.45;
+    }
+
     @media (max-width: 980px){
       .months{grid-template-columns:repeat(2,1fr)}
     }
@@ -399,6 +468,7 @@
       .chip{font-size:12px;padding:6px 9px}
       .direct strong{font-size:17px}
       .direct span{font-size:13px}
+      .microcopy{font-size:12px}
       .mobileNav{display:flex}
       .months{display:block}
       .month{display:none;padding:10px}
@@ -416,10 +486,11 @@
       .form{margin-top:12px;padding-top:12px}
       .form h4{font-size:16px;margin-bottom:9px}
       .field{margin-bottom:8px}
-      .field input,.field textarea{padding:9px 10px;font-size:14px}
+      .field input,.field select,.field textarea{padding:9px 10px;font-size:14px}
       .field textarea{min-height:68px}
       .row{grid-template-columns:1fr}
       .summaryRow{font-size:14px}
+      .priceMain{font-size:22px}
     }
   </style>
 </head>
@@ -441,6 +512,10 @@
     <div class="direct">
       <strong>Reserva directa aquí</strong>
       <span>Sin comisiones de plataforma · Calendario actualizado en tiempo real</span>
+      <div class="microcopy">
+        Selecciona primero la fecha de entrada y luego la de salida.<br>
+        Consulta sin compromiso. Solemos responder rápidamente por WhatsApp.
+      </div>
     </div>
 
     <div class="statusWrap">
@@ -502,19 +577,29 @@
           <input id="nights" type="number" min="1" value="1" readonly>
         </div>
         <div class="field">
-          <label>Adultos</label>
-          <input id="adults" type="number" min="1" value="2">
+          <label>Huéspedes</label>
+          <select id="guests">
+            <option value="1">1 huésped</option>
+            <option value="2" selected>2 huéspedes</option>
+          </select>
         </div>
       </div>
 
-      <div class="field">
-        <label>Niños</label>
-        <input id="children" type="number" min="0" value="0">
+      <div class="priceBox">
+        <div class="priceBoxTitle">Precio orientativo</div>
+        <div class="priceMain" id="formPriceMain">95 €</div>
+        <div class="priceSub" id="formPriceSub">Precio calculado según las noches seleccionadas.</div>
+        <div id="discountTag" class="discountTag" style="display:none;">-10 % por ocupación individual</div>
       </div>
 
       <div class="field">
         <label>Mensaje</label>
         <textarea id="notes" rows="3" placeholder="Escribe aquí si quieres añadir algo"></textarea>
+      </div>
+
+      <div class="helper">
+        Vamos a abrir WhatsApp con tu consulta preparada.<br>
+        Solo tendrás que pulsar enviar.
       </div>
 
       <div class="actions">
@@ -555,6 +640,10 @@
   const checkoutInput = document.getElementById('checkout');
   const nightsInput = document.getElementById('nights');
   const formTitle = document.getElementById('formTitle');
+  const guestsInput = document.getElementById('guests');
+  const formPriceMain = document.getElementById('formPriceMain');
+  const formPriceSub = document.getElementById('formPriceSub');
+  const discountTag = document.getElementById('discountTag');
 
   let activeMonth = new Date().getFullYear() === year ? new Date().getMonth() : 0;
 
@@ -563,6 +652,13 @@
   let selectedStart = '';
   let selectedEnd = '';
   let selectedUnit = '';
+  let calendarViewTracked = false;
+
+  function track(eventName, params = {}) {
+    if (typeof gtag === 'function') {
+      gtag('event', eventName, params);
+    }
+  }
 
   function pad(v){ return String(v).padStart(2,'0'); }
 
@@ -805,7 +901,6 @@
     monthLabel.textContent = monthNames[activeMonth];
   }
 
-  
   function getMinNights(unit, startIso){
     const d = isoToDate(startIso);
     const m = d.getMonth()+1;
@@ -828,25 +923,53 @@
     return 0;
   }
 
-  function getStayPrice(unit, startIso, endIso){
+  function getStayBasePrice(unit, startIso, endIso){
     const nights = diffNights(startIso, endIso);
     let total = 0;
     for(let i=0; i<nights; i++) total += getNightRate(unit, addDays(startIso, i));
     return total;
   }
 
+  function getAdjustedStayPrice(unit, startIso, endIso, guests){
+    const base = getStayBasePrice(unit, startIso, endIso);
+    if(Number(guests) === 1) return Math.round(base * 0.9 * 100) / 100;
+    return base;
+  }
+
+  function euro(value){
+    return `${value.toLocaleString('es-ES', { minimumFractionDigits: value % 1 ? 2 : 0, maximumFractionDigits: 2 })} €`;
+  }
+
   function getUnitPriceText(unit, startIso, endIso){
-    const total = getStayPrice(unit, startIso, endIso);
-    if(unit === 'oketa') return `Oketa: 95 € baja / 120 € alta · Total orientativo: ${total} €`;
-    if(unit === 'orixol') return `Orixol: 80 € baja / 90 € alta · Total orientativo: ${total} €`;
+    const total = getStayBasePrice(unit, startIso, endIso);
+    if(unit === 'oketa') return `Oketa: 95 € baja / 120 € alta · Total orientativo: ${euro(total)}`;
+    if(unit === 'orixol') return `Orixol: 80 € baja / 90 € alta · Total orientativo: ${euro(total)}`;
     return '';
+  }
+
+  function updateFormPrice(){
+    if(!selectedUnit || !selectedStart || !selectedEnd) return;
+    const guests = Number(guestsInput.value || 2);
+    const base = getStayBasePrice(selectedUnit, selectedStart, selectedEnd);
+    const total = getAdjustedStayPrice(selectedUnit, selectedStart, selectedEnd, guests);
+    const unitText = selectedUnit === 'oketa' ? 'Oketa' : 'Orixol';
+
+    formPriceMain.textContent = euro(total);
+
+    if(guests === 1){
+      discountTag.style.display = 'inline-block';
+      formPriceSub.textContent = `${unitText} · Precio base ${euro(base)} · Precio ajustado por 1 huésped.`;
+    } else {
+      discountTag.style.display = 'none';
+      formPriceSub.textContent = `${unitText} · Precio calculado según las noches seleccionadas.`;
+    }
   }
 
   function openModal(startIso, endIso, availableUnits){
     selectedUnit = '';
 
     modalDate.textContent = 'Consulta tu estancia';
-    modalText.textContent = 'Elige el alojamiento que quieres consultar por WhatsApp.';
+    modalText.innerHTML = 'Elige el alojamiento que quieres consultar por WhatsApp.<br><br><strong>Consulta sin compromiso.</strong> Primero confirmamos disponibilidad contigo.';
 
     summaryCheckin.textContent = formatDate(startIso);
     summaryCheckout.textContent = formatDate(endIso);
@@ -855,6 +978,7 @@
     checkinInput.value = formatDate(startIso);
     checkoutInput.value = formatDate(endIso);
     nightsInput.value = diffNights(startIso, endIso);
+    guestsInput.value = '2';
 
     choices.innerHTML = '';
     form.classList.remove('show');
@@ -878,7 +1002,7 @@
     }
 
     if(priceLines.length){
-      modalText.innerHTML = 'Elige el alojamiento que quieres consultar por WhatsApp.<br><br>' + priceLines.join('<br>');
+      modalText.innerHTML += '<br><br>' + priceLines.join('<br>');
     } else {
       modalText.textContent = 'La estancia seleccionada no cumple las condiciones mínimas para los alojamientos disponibles.';
     }
@@ -899,6 +1023,13 @@
     formTitle.textContent = label;
     form.classList.add('show');
     closeArea.style.display = 'none';
+    updateFormPrice();
+
+    track(type === 'oketa' ? 'select_oketa' : 'select_orixol', {
+      checkin: selectedStart,
+      checkout: selectedEnd,
+      nights: diffNights(selectedStart, selectedEnd)
+    });
   }
 
   function closeModal(){
@@ -921,6 +1052,7 @@
     closeArea.style.display = 'flex';
   };
   clearSelectionBtn.onclick = clearSelection;
+  guestsInput.addEventListener('change', updateFormPrice);
 
   overlay.addEventListener('click', e=>{
     if(e.target === overlay) closeModal();
@@ -929,33 +1061,40 @@
   document.getElementById('sendWa').onclick = ()=>{
     const name = document.getElementById('name').value.trim();
     const phoneUser = document.getElementById('phoneUser').value.trim();
-    const adults = document.getElementById('adults').value || '2';
-    const children = document.getElementById('children').value || '0';
+    const guests = guestsInput.value || '2';
     const notes = document.getElementById('notes').value.trim();
 
     const unitText = selectedUnit === 'oketa' ? 'Oketa' : 'Orixol';
-    const totalPrice = getStayPrice(selectedUnit, selectedStart, selectedEnd);
-    const priceText = selectedUnit === 'oketa'
-      ? 'Tarifa: 95 € temporada baja / 120 € temporada alta'
-      : 'Tarifa: 80 € temporada baja / 90 € temporada alta';
+    const basePrice = getStayBasePrice(selectedUnit, selectedStart, selectedEnd);
+    const totalPrice = getAdjustedStayPrice(selectedUnit, selectedStart, selectedEnd, guests);
+    const discountApplied = Number(guests) === 1;
+
+    track('whatsapp_click', {
+      unit: selectedUnit,
+      checkin: selectedStart,
+      checkout: selectedEnd,
+      nights: diffNights(selectedStart, selectedEnd),
+      guests: Number(guests),
+      total_price: totalPrice
+    });
 
     const msg = [
-      'Hola Rober,',
-      '',
-      'He visto vuestra disponibilidad en la web de Solapetxea y me gustaría consultar esta estancia:',
+      'Consulta de disponibilidad – Solapetxea',
       '',
       `Alojamiento: ${unitText}`,
       `Entrada: ${formatDate(selectedStart)}`,
       `Salida: ${formatDate(selectedEnd)}`,
       `Noches: ${diffNights(selectedStart, selectedEnd)}`,
-      priceText,
-      `Precio orientativo de la estancia: ${totalPrice} €`,
-      `Adultos: ${adults}`,
-      `Niños: ${children}`,
+      `Huéspedes: ${guests}`,
+      '',
+      `Precio orientativo: ${euro(totalPrice)}`,
+      discountApplied ? `Descuento aplicado: 10 % por ocupación individual` : '',
+      '',
+      `Tarifa base sin descuento: ${euro(basePrice)}`,
       '',
       name ? `Nombre: ${name}` : '',
       phoneUser ? `Teléfono: ${phoneUser}` : '',
-      notes ? `Comentario: ${notes}` : '',
+      notes ? `Mensaje adicional: ${notes}` : '',
       '',
       'Gracias.'
     ].filter(Boolean).join('\n');
@@ -980,6 +1119,11 @@
       dayStatus = buildDayStatus(occupancyRaw);
       renderAll();
       statusEl.textContent = '';
+
+      if (!calendarViewTracked) {
+        track('calendar_view', { year });
+        calendarViewTracked = true;
+      }
     }catch(err){
       statusEl.textContent = 'No se ha podido cargar la disponibilidad.';
       statusEl.classList.add('warn');
