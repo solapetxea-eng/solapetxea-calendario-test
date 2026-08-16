@@ -1,5 +1,5 @@
 // Cloudflare Pages Function
-// Endpoint: /api/calendar?year=2026
+// Endpoint: /api/calendar?year=2026 (también admite 2027)
 
 const ICALS = {
   orixol: [
