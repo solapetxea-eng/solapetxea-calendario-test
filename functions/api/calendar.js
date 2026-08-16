@@ -1,6 +1,8 @@
 // Cloudflare Pages Function
 // Endpoint: /api/calendar?year=2026 (también admite 2027)
 
+import { addManualBlocks, readCalendarConfig } from '../_shared/calendar-config.js';
+
 const ICALS = {
   orixol: [
     'https://ical.booking.com/v1/export?t=6d705df1-fdda-4556-86ea-f9ff4c66cf46',
@@ -122,33 +124,29 @@ export async function onRequestGet(context) {
   const url = new URL(context.request.url);
   const year = Number(url.searchParams.get('year') || new Date().getUTCFullYear());
 
-  const cache = caches.default;
-  const cacheKey = new Request(url.toString(), context.request);
-  let cached = await cache.match(cacheKey);
-  if (cached) return cached;
-
   try {
-    const [orixol, oketa] = await Promise.all([
+    const [orixol, oketa, config] = await Promise.all([
       loadRoom(ICALS.orixol, year),
       loadRoom(ICALS.oketa, year),
+      readCalendarConfig(context.env),
     ]);
+    const occupancy = addManualBlocks({ orixol, oketa }, config, year);
 
     const body = JSON.stringify({
       ok: true,
       year,
       cached_minutes: 5,
-      occupancy: { orixol, oketa },
+      occupancy,
       updated_at: new Date().toISOString(),
     });
 
     const response = new Response(body, {
       headers: {
         'content-type': 'application/json; charset=utf-8',
-        'cache-control': 'public, max-age=300, s-maxage=300',
+        'cache-control': 'no-store',
       },
     });
 
-    context.waitUntil(cache.put(cacheKey, response.clone()));
     return response;
   } catch (err) {
     return new Response(JSON.stringify({

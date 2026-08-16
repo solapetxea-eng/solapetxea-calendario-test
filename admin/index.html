@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Administración · Calendario Solapetxea</title>
+  <style>
+    :root{--bg:#f5f1ea;--card:#fff;--text:#213128;--muted:#6c776f;--line:#ddd8ce;--brand:#2f6b4f;--brand2:#e6f1eb;--danger:#a23b32;--shadow:0 12px 34px rgba(35,49,40,.09)}
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 Inter,system-ui,-apple-system,"Segoe UI",sans-serif}
+    button,input,select{font:inherit}
+    .shell{width:min(1180px,calc(100% - 28px));margin:28px auto 60px}
+    header{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:22px}
+    h1{font-size:clamp(25px,4vw,38px);line-height:1.08;margin:0 0 7px}
+    .subtitle{margin:0;color:var(--muted)}
+    .headerActions{display:flex;gap:9px;flex-wrap:wrap;justify-content:flex-end}
+    .btn{border:1px solid var(--line);border-radius:11px;background:#fff;color:var(--text);padding:10px 15px;font-weight:750;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
+    .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+    .btn.danger{color:var(--danger);padding:7px 10px}
+    .btn.small{padding:8px 11px;font-size:13px}
+    .notice{display:none;margin-bottom:18px;padding:12px 15px;border-radius:11px;background:var(--brand2);color:#244d3b;font-weight:650}
+    .notice.show{display:block}.notice.error{background:#f9e8e5;color:#7d302a}
+    .access{display:grid;grid-template-columns:minmax(230px,1fr) auto;gap:10px;align-items:end;background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:18px;box-shadow:var(--shadow)}
+    .access p{grid-column:1/-1;margin:0;color:var(--muted);font-size:13px}
+    .field label{display:block;font-size:12px;font-weight:800;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em}
+    input,select{width:100%;min-width:0;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--text);padding:9px 10px}
+    input:focus,select:focus{outline:3px solid rgba(47,107,79,.14);border-color:var(--brand)}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:16px;box-shadow:var(--shadow)}
+    .cardHead{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:15px}
+    h2{font-size:20px;margin:0}.hint{color:var(--muted);font-size:13px;margin:3px 0 0}
+    .rates{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+    .unit{border:1px solid var(--line);background:#fbfaf7;border-radius:13px;padding:14px}
+    .unit h3{margin:0 0 12px;font-size:17px}
+    .rateGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    .discount{margin-top:14px;max-width:300px}
+    .tableWrap{overflow-x:auto}
+    table{width:100%;border-collapse:collapse;min-width:720px}
+    th{text-align:left;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;padding:0 7px 8px}
+    td{padding:7px;border-top:1px solid #ece8df;vertical-align:middle}
+    td.actions{width:55px;text-align:right}
+    .empty{text-align:center;color:var(--muted);padding:22px!important}
+    footer{margin-top:20px;color:var(--muted);font-size:13px;text-align:center}
+    @media(max-width:720px){.shell{width:min(100% - 18px,1180px);margin-top:16px}header{display:block}.headerActions{justify-content:flex-start;margin-top:14px}.access{grid-template-columns:1fr}.rates{grid-template-columns:1fr}.card{padding:14px}.rateGrid{grid-template-columns:1fr 1fr}.btn{flex:1}}
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div>
+        <h1>Gestión del calendario</h1>
+        <p class="subtitle">Cambia tarifas, temporadas, noches mínimas y bloqueos sin editar código.</p>
+      </div>
+      <div class="headerActions">
+        <a class="btn" href="/" target="_blank">Ver calendario</a>
+        <button class="btn primary" id="saveTop" type="button">Guardar cambios</button>
+      </div>
+    </header>
+
+    <div class="notice" id="notice" role="status"></div>
+
+    <section class="access">
+      <div class="field">
+        <label for="password">Clave de administración</label>
+        <input id="password" type="password" autocomplete="current-password" placeholder="No necesaria si usas Cloudflare Access">
+      </div>
+      <button class="btn" id="reload" type="button">Cargar datos</button>
+      <p>La clave se conserva solo durante esta pestaña. En producción también puedes proteger esta ruta con Cloudflare Access.</p>
+    </section>
+
+    <section class="card">
+      <div class="cardHead">
+        <div><h2>Tarifas</h2><p class="hint">Precio por noche para cada alojamiento y temporada.</p></div>
+      </div>
+      <div class="rates">
+        <article class="unit">
+          <h3>Oketa</h3>
+          <div class="rateGrid">
+            <div class="field"><label for="oketaLow">Temporada baja (€)</label><input id="oketaLow" type="number" min="0" step="1"></div>
+            <div class="field"><label for="oketaHigh">Temporada alta (€)</label><input id="oketaHigh" type="number" min="0" step="1"></div>
+          </div>
+        </article>
+        <article class="unit">
+          <h3>Orixol</h3>
+          <div class="rateGrid">
+            <div class="field"><label for="orixolLow">Temporada baja (€)</label><input id="orixolLow" type="number" min="0" step="1"></div>
+            <div class="field"><label for="orixolHigh">Temporada alta (€)</label><input id="orixolHigh" type="number" min="0" step="1"></div>
+          </div>
+        </article>
+      </div>
+      <div class="field discount"><label for="discount">Descuento para una persona (%)</label><input id="discount" type="number" min="0" max="100" step="1"></div>
+    </section>
+
+    <section class="card">
+      <div class="cardHead">
+        <div><h2>Temporadas</h2><p class="hint">Define qué fechas utilizan la tarifa alta o baja.</p></div>
+        <button class="btn small" id="addSeason" type="button">+ Añadir</button>
+      </div>
+      <div class="tableWrap"><table><thead><tr><th>Nombre</th><th>Tipo</th><th>Desde</th><th>Hasta</th><th></th></tr></thead><tbody id="seasonRows"></tbody></table></div>
+    </section>
+
+    <section class="card">
+      <div class="cardHead">
+        <div><h2>Noches mínimas</h2><p class="hint">Si coinciden varias reglas se aplica el mínimo más alto.</p></div>
+        <button class="btn small" id="addMinimum" type="button">+ Añadir</button>
+      </div>
+      <div class="tableWrap"><table><thead><tr><th>Alojamiento</th><th>Desde</th><th>Hasta</th><th>Noches</th><th></th></tr></thead><tbody id="minimumRows"></tbody></table></div>
+    </section>
+
+    <section class="card">
+      <div class="cardHead">
+        <div><h2>Reservas directas y bloqueos</h2><p class="hint">La fecha de salida queda libre, igual que en Booking y Airbnb.</p></div>
+        <button class="btn small" id="addBlock" type="button">+ Añadir</button>
+      </div>
+      <div class="tableWrap"><table><thead><tr><th>Alojamiento</th><th>Entrada</th><th>Salida</th><th>Nota</th><th></th></tr></thead><tbody id="blockRows"></tbody></table></div>
+    </section>
+
+    <div class="headerActions"><button class="btn primary" id="saveBottom" type="button">Guardar cambios</button></div>
+    <footer>Los cambios guardados en Cloudflare se aplican al calendario público. Las reservas externas continúan llegando mediante iCal.</footer>
+  </main>
+
+  <script>
+    const STORAGE_KEY = 'solapetxea_calendar_config';
+    const DEFAULT_CONFIG = {
+      version:1,
+      singleOccupancyDiscount:10,
+      units:{oketa:{name:'Oketa',rates:{low:95,high:120}},orixol:{name:'Orixol',rates:{low:80,high:90}}},
+      seasons:[], minimumStays:[], manualBlocks:[]
+    };
+    for(const year of [2026, 2027]){
+      DEFAULT_CONFIG.seasons.push(
+        {id:`summer-${year}`,name:`Verano ${year}`,type:'high',start:`${year}-06-15`,end:`${year}-09-15`},
+        {id:`october-${year}`,name:`Puente de octubre ${year}`,type:'high',start:`${year}-10-09`,end:`${year}-10-12`},
+        {id:`december-${year}`,name:`Puente de diciembre ${year}`,type:'high',start:`${year}-12-04`,end:`${year}-12-08`},
+        {id:`christmas-${year}`,name:`Navidad ${year}`,type:'high',start:`${year}-12-24`,end:`${year}-12-31`}
+      );
+      DEFAULT_CONFIG.minimumStays.push(
+        {id:`oketa-shoulder-${year}`,unit:'oketa',start:`${year}-05-01`,end:`${year}-09-30`,nights:2},
+        {id:`oketa-summer-${year}`,unit:'oketa',start:`${year}-07-01`,end:`${year}-08-31`,nights:5},
+        {id:`orixol-summer-${year}`,unit:'orixol',start:`${year}-07-01`,end:`${year}-08-31`,nights:2}
+      );
+    }
+    let config = structuredClone(DEFAULT_CONFIG);
+
+    const $ = id => document.getElementById(id);
+    const esc = value => String(value ?? '').replace(/[&<>"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[char]));
+    const uid = prefix => `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const isLocal = ['localhost','127.0.0.1'].includes(location.hostname);
+
+    function notify(message, error=false){
+      $('notice').textContent = message;
+      $('notice').className = `notice show${error ? ' error' : ''}`;
+      clearTimeout(notify.timer);
+      notify.timer = setTimeout(()=>$('notice').classList.remove('show'), 5000);
+    }
+
+    function headers(){
+      const password = $('password').value;
+      if(password) sessionStorage.setItem('solapetxea_admin_password', password);
+      return {'content-type':'application/json', ...(password ? {'x-admin-password':password} : {})};
+    }
+
+    async function requestConfig(){
+      const password = $('password').value;
+      if(password){
+        const response = await fetch('/api/admin/config', {headers:headers(), cache:'no-store'});
+        const data = await response.json();
+        if(!response.ok || !data.ok) throw new Error(data.error || 'No se pudo cargar');
+        return data.config;
+      }
+      const response = await fetch('/api/settings', {cache:'no-store'});
+      const data = await response.json();
+      if(!response.ok || !data.ok) throw new Error(data.error || 'No se pudo cargar');
+      return data.config;
+    }
+
+    async function load(){
+      try{
+        config = await requestConfig();
+        render();
+        notify('Configuración cargada desde Cloudflare.');
+      }catch(error){
+        const local = localStorage.getItem(STORAGE_KEY);
+        if(isLocal && local){ config = JSON.parse(local); render(); notify('Configuración de demostración cargada en local.'); return; }
+        if(isLocal){ render(); notify('Modo demostración local: puedes editar y guardar para probar la aplicación.'); return; }
+        notify(error.message, true);
+      }
+    }
+
+    function unitOptions(selected){
+      return `<option value="oketa" ${selected==='oketa'?'selected':''}>Oketa</option><option value="orixol" ${selected==='orixol'?'selected':''}>Orixol</option>`;
+    }
+
+    function render(){
+      $('oketaLow').value = config.units?.oketa?.rates?.low ?? 95;
+      $('oketaHigh').value = config.units?.oketa?.rates?.high ?? 120;
+      $('orixolLow').value = config.units?.orixol?.rates?.low ?? 80;
+      $('orixolHigh').value = config.units?.orixol?.rates?.high ?? 90;
+      $('discount').value = config.singleOccupancyDiscount ?? 10;
+
+      $('seasonRows').innerHTML = (config.seasons || []).map(item => `<tr data-id="${esc(item.id)}"><td><input data-field="name" value="${esc(item.name)}"></td><td><select data-field="type"><option value="high" ${item.type==='high'?'selected':''}>Alta</option><option value="low" ${item.type==='low'?'selected':''}>Baja</option></select></td><td><input data-field="start" type="date" value="${esc(item.start)}"></td><td><input data-field="end" type="date" value="${esc(item.end)}"></td><td class="actions"><button class="btn danger remove" type="button">Eliminar</button></td></tr>`).join('') || '<tr><td class="empty" colspan="5">No hay temporadas configuradas.</td></tr>';
+      $('minimumRows').innerHTML = (config.minimumStays || []).map(item => `<tr data-id="${esc(item.id)}"><td><select data-field="unit">${unitOptions(item.unit)}</select></td><td><input data-field="start" type="date" value="${esc(item.start)}"></td><td><input data-field="end" type="date" value="${esc(item.end)}"></td><td><input data-field="nights" type="number" min="1" max="60" value="${Number(item.nights)||1}"></td><td class="actions"><button class="btn danger remove" type="button">Eliminar</button></td></tr>`).join('') || '<tr><td class="empty" colspan="5">No hay reglas de estancia mínima.</td></tr>';
+      $('blockRows').innerHTML = (config.manualBlocks || []).map(item => `<tr data-id="${esc(item.id)}"><td><select data-field="unit">${unitOptions(item.unit)}</select></td><td><input data-field="start" type="date" value="${esc(item.start)}"></td><td><input data-field="end" type="date" value="${esc(item.end)}"></td><td><input data-field="note" value="${esc(item.note)}" placeholder="Reserva directa, mantenimiento…"></td><td class="actions"><button class="btn danger remove" type="button">Eliminar</button></td></tr>`).join('') || '<tr><td class="empty" colspan="5">No hay bloqueos manuales.</td></tr>';
+    }
+
+    function readRows(bodyId, fields){
+      return [...$(bodyId).querySelectorAll('tr[data-id]')].map(row => Object.fromEntries([
+        ['id', row.dataset.id],
+        ...fields.map(field => [field, row.querySelector(`[data-field="${field}"]`).value])
+      ]));
+    }
+
+    function collect(){
+      const seasons = readRows('seasonRows',['name','type','start','end']);
+      const minimumStays = readRows('minimumRows',['unit','start','end','nights']).map(item=>({...item,nights:Number(item.nights)}));
+      const manualBlocks = readRows('blockRows',['unit','start','end','note']);
+      for(const item of [...seasons,...minimumStays,...manualBlocks]){
+        if(!item.start || !item.end || item.start > item.end) throw new Error('Revisa las fechas: el inicio debe ser anterior al final.');
+      }
+      return {
+        version:1,
+        singleOccupancyDiscount:Number($('discount').value),
+        units:{
+          oketa:{name:'Oketa',rates:{low:Number($('oketaLow').value),high:Number($('oketaHigh').value)}},
+          orixol:{name:'Orixol',rates:{low:Number($('orixolLow').value),high:Number($('orixolHigh').value)}}
+        }, seasons, minimumStays, manualBlocks
+      };
+    }
+
+    async function save(){
+      try{
+        config = collect();
+        const response = await fetch('/api/admin/config', {method:'PUT',headers:headers(),body:JSON.stringify({config})});
+        const data = await response.json();
+        if(!response.ok || !data.ok) throw new Error(data.error || 'No se pudo guardar');
+        config = data.config;
+        render();
+        notify('Cambios guardados en Cloudflare.');
+      }catch(error){
+        if(isLocal){
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+          notify('Cambios guardados en el modo demostración local. Abre o recarga el calendario para verlos.');
+          return;
+        }
+        notify(error.message, true);
+      }
+    }
+
+    function addSeason(){config.seasons.push({id:uid('season'),name:'Nueva temporada',type:'high',start:'2026-01-01',end:'2026-01-01'});render()}
+    function addMinimum(){config.minimumStays.push({id:uid('minimum'),unit:'oketa',start:'2026-01-01',end:'2026-01-01',nights:1});render()}
+    function addBlock(){config.manualBlocks.push({id:uid('block'),unit:'oketa',start:'2026-01-01',end:'2026-01-02',note:''});render()}
+
+    document.addEventListener('click', event=>{
+      const remove = event.target.closest('.remove');
+      if(!remove) return;
+      const row = remove.closest('tr');
+      const body = row.parentElement.id;
+      const key = body==='seasonRows'?'seasons':body==='minimumRows'?'minimumStays':'manualBlocks';
+      config[key] = config[key].filter(item=>item.id!==row.dataset.id);
+      render();
+    });
+    $('saveTop').onclick = $('saveBottom').onclick = save;
+    $('reload').onclick = load;
+    $('addSeason').onclick = addSeason;
+    $('addMinimum').onclick = addMinimum;
+    $('addBlock').onclick = addBlock;
+    $('password').value = sessionStorage.getItem('solapetxea_admin_password') || '';
+    load();
+  </script>
+</body>
+</html>

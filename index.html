@@ -732,6 +732,7 @@
   let selectedEnd = '';
   let selectedUnit = '';
   let currentModalUnits = [];
+  let calendarConfig = null;
   const trackedCalendarYears = new Set();
 
   const translations = {
@@ -759,7 +760,7 @@
       estimatedBase: 'Precio calculado según las noches seleccionadas.',
       estimatedAdjusted: '{unit} · Precio base {base} · Precio ajustado por 1 huésped.',
       estimatedNormal: '{unit} · Precio calculado según las noches seleccionadas.',
-      discount: '-10 % por ocupación individual',
+      discount: '-{discount} % por ocupación individual',
       message: 'Mensaje',
       messagePlaceholder: 'Escribe aquí si quieres añadir algo',
       helper: 'Vamos a abrir WhatsApp con tu consulta preparada.<br>Solo tendrás que pulsar enviar.',
@@ -767,8 +768,8 @@
       back: 'Volver',
       close: 'Cerrar',
       minStayFail: 'La estancia seleccionada no cumple las condiciones mínimas para los alojamientos disponibles.',
-      unitPrice_oketa: 'Oketa: 95 € baja / 120 € alta · Total orientativo: {total}',
-      unitPrice_orixol: 'Orixol: 80 € baja / 90 € alta · Total orientativo: {total}',
+      unitPrice_oketa: 'Oketa: {low} baja / {high} alta · Total orientativo: {total}',
+      unitPrice_orixol: 'Orixol: {low} baja / {high} alta · Total orientativo: {total}',
       waGreeting: 'Consulta de disponibilidad – Solapetxea',
       waAccommodation: 'Alojamiento',
       waCheckin: 'Entrada',
@@ -776,7 +777,7 @@
       waNights: 'Noches',
       waGuests: 'Huéspedes',
       waEstimatedPrice: 'Precio orientativo',
-      waDiscount: 'Descuento aplicado: 10 % por ocupación individual',
+      waDiscount: 'Descuento aplicado: {discount} % por ocupación individual',
       waBasePrice: 'Tarifa base sin descuento',
       waName: 'Nombre',
       waPhone: 'Teléfono',
@@ -807,7 +808,7 @@
       estimatedBase: 'Hautatutako gauen arabera kalkulatutako prezioa.',
       estimatedAdjusted: '{unit} · Oinarrizko prezioa {base} · 1 gonbidatuarentzako egokitutako prezioa.',
       estimatedNormal: '{unit} · Hautatutako gauen arabera kalkulatutako prezioa.',
-      discount: '-10 % pertsona bakarreko okupazioagatik',
+      discount: '-% {discount} pertsona bakarreko okupazioagatik',
       message: 'Mezua',
       messagePlaceholder: 'Idatzi hemen zerbait gehitu nahi baduzu',
       helper: 'Zure kontsulta prestatuta duen WhatsApp irekiko dugu.<br>Bidali sakatu besterik ez duzu egin beharko.',
@@ -815,8 +816,8 @@
       back: 'Atzera',
       close: 'Itxi',
       minStayFail: 'Hautatutako egonaldiak ez ditu erabilgarri dauden ostatuen gutxieneko baldintzak betetzen.',
-      unitPrice_oketa: 'Oketa: 95 € baxua / 120 € altua · Guztira orientagarria: {total}',
-      unitPrice_orixol: 'Orixol: 80 € baxua / 90 € altua · Guztira orientagarria: {total}',
+      unitPrice_oketa: 'Oketa: {low} baxua / {high} altua · Guztira orientagarria: {total}',
+      unitPrice_orixol: 'Orixol: {low} baxua / {high} altua · Guztira orientagarria: {total}',
       waGreeting: 'Erabilgarritasun kontsulta – Solapetxea',
       waAccommodation: 'Ostatua',
       waCheckin: 'Sarrera',
@@ -824,7 +825,7 @@
       waNights: 'Gauak',
       waGuests: 'Gonbidatuak',
       waEstimatedPrice: 'Prezio orientagarria',
-      waDiscount: 'Aplikatutako deskontua: %10 pertsona bakarreko okupazioagatik',
+      waDiscount: 'Aplikatutako deskontua: %{discount} pertsona bakarreko okupazioagatik',
       waBasePrice: 'Deskonturik gabeko oinarrizko tarifa',
       waName: 'Izena',
       waPhone: 'Telefonoa',
@@ -855,7 +856,7 @@
       estimatedBase: 'Price calculated according to the selected nights.',
       estimatedAdjusted: '{unit} · Base price {base} · Adjusted price for 1 guest.',
       estimatedNormal: '{unit} · Price calculated according to the selected nights.',
-      discount: '-10% for single occupancy',
+      discount: '-{discount}% for single occupancy',
       message: 'Message',
       messagePlaceholder: 'Write here if you want to add something',
       helper: 'We are about to open WhatsApp with your enquiry prepared.<br>You will only need to press send.',
@@ -863,8 +864,8 @@
       back: 'Back',
       close: 'Close',
       minStayFail: 'The selected stay does not meet the minimum stay conditions for the available accommodation.',
-      unitPrice_oketa: 'Oketa: €95 low / €120 high · Estimated total: {total}',
-      unitPrice_orixol: 'Orixol: €80 low / €90 high · Estimated total: {total}',
+      unitPrice_oketa: 'Oketa: {low} low / {high} high · Estimated total: {total}',
+      unitPrice_orixol: 'Orixol: {low} low / {high} high · Estimated total: {total}',
       waGreeting: 'Availability enquiry – Solapetxea',
       waAccommodation: 'Accommodation',
       waCheckin: 'Check-in',
@@ -872,7 +873,7 @@
       waNights: 'Nights',
       waGuests: 'Guests',
       waEstimatedPrice: 'Estimated price',
-      waDiscount: 'Applied discount: 10% for single occupancy',
+      waDiscount: 'Applied discount: {discount}% for single occupancy',
       waBasePrice: 'Base rate without discount',
       waName: 'Name',
       waPhone: 'Phone',
@@ -945,6 +946,11 @@
   }
 
   function getSeason(iso){
+    if(calendarConfig){
+      const matches = (calendarConfig.seasons || []).filter(item=>iso >= item.start && iso <= item.end);
+      return matches.some(item=>item.type === 'high') ? 'high' : 'low';
+    }
+
     const d = isoToDate(iso);
     const y = d.getFullYear();
 
@@ -1193,6 +1199,13 @@
   }
 
   function getMinNights(unit, startIso){
+    if(calendarConfig){
+      const matchingRules = (calendarConfig.minimumStays || []).filter(item=>{
+        return item.unit === unit && startIso >= item.start && startIso <= item.end;
+      });
+      return matchingRules.reduce((minimum, item)=>Math.max(minimum, Number(item.nights) || 1), 1);
+    }
+
     const d = isoToDate(startIso);
     const m = d.getMonth()+1;
     if(unit==='oketa'){
@@ -1209,6 +1222,8 @@
 
   function getNightRate(unit, iso){
     const season = getSeason(iso);
+    const configuredRate = calendarConfig?.units?.[unit]?.rates?.[season];
+    if(Number.isFinite(Number(configuredRate))) return Number(configuredRate);
     if(unit === 'oketa') return season === 'high' ? 120 : 95;
     if(unit === 'orixol') return season === 'high' ? 90 : 80;
     return 0;
@@ -1223,7 +1238,8 @@
 
   function getAdjustedStayPrice(unit, startIso, endIso, guests){
     const base = getStayBasePrice(unit, startIso, endIso);
-    if(Number(guests) === 1) return Math.round(base * 0.9 * 100) / 100;
+    const discount = Number(calendarConfig?.singleOccupancyDiscount ?? 10);
+    if(Number(guests) === 1) return Math.round(base * (1 - discount / 100) * 100) / 100;
     return base;
   }
 
@@ -1237,7 +1253,8 @@
 
   function getUnitPriceText(unit, startIso, endIso){
     const total = getStayBasePrice(unit, startIso, endIso);
-    return t(`unitPrice_${unit}`, { total: euro(total) });
+    const rates = calendarConfig?.units?.[unit]?.rates || (unit === 'oketa' ? { low:95, high:120 } : { low:80, high:90 });
+    return t(`unitPrice_${unit}`, { total: euro(total), low: euro(Number(rates.low)), high: euro(Number(rates.high)) });
   }
 
   function updateFormPrice(){
@@ -1246,12 +1263,13 @@
     const base = getStayBasePrice(selectedUnit, selectedStart, selectedEnd);
     const total = getAdjustedStayPrice(selectedUnit, selectedStart, selectedEnd, guests);
     const unitText = getUnitName(selectedUnit);
+    const singleDiscount = Number(calendarConfig?.singleOccupancyDiscount ?? 10);
 
     formPriceMain.textContent = euro(total);
 
-    if(guests === 1){
+    if(guests === 1 && singleDiscount > 0){
       discountTag.style.display = 'inline-block';
-      discountTag.textContent = t('discount');
+      discountTag.textContent = t('discount', { discount: singleDiscount });
       formPriceSub.textContent = t('estimatedAdjusted', { unit: unitText, base: euro(base) });
     } else {
       discountTag.style.display = 'none';
@@ -1418,7 +1436,7 @@
     const unitText = getUnitName(selectedUnit);
     const basePrice = getStayBasePrice(selectedUnit, selectedStart, selectedEnd);
     const totalPrice = getAdjustedStayPrice(selectedUnit, selectedStart, selectedEnd, guests);
-    const discountApplied = Number(guests) === 1;
+    const discountApplied = Number(guests) === 1 && Number(calendarConfig?.singleOccupancyDiscount ?? 10) > 0;
 
     track('whatsapp_click', {
       unit: selectedUnit,
@@ -1440,7 +1458,7 @@
       `${t('waGuests')}: ${guests}`,
       '',
       `${t('waEstimatedPrice')}: ${euro(totalPrice)}`,
-      discountApplied ? t('waDiscount') : '',
+      discountApplied ? t('waDiscount', { discount: Number(calendarConfig?.singleOccupancyDiscount ?? 10) }) : '',
       '',
       `${t('waBasePrice')}: ${euro(basePrice)}`,
       '',
@@ -1453,6 +1471,32 @@
 
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
   };
+
+  async function loadCalendarConfig(){
+    try{
+      const response = await fetch('/api/settings', { cache:'no-store' });
+      const data = await response.json();
+      if(!response.ok || !data.ok || !data.config) throw new Error('Configuración no disponible');
+      calendarConfig = data.config;
+    }catch{
+      const localConfig = localStorage.getItem('solapetxea_calendar_config');
+      if(localConfig){
+        try{ calendarConfig = JSON.parse(localConfig); }catch{ calendarConfig = null; }
+      }
+    }
+  }
+
+  function applyConfiguredBlocks(occupancy, requestedYear){
+    for(const block of calendarConfig?.manualBlocks || []){
+      if(!occupancy[block.unit]) continue;
+      let cursor = block.start;
+      while(cursor < block.end){
+        if(cursor.startsWith(`${requestedYear}-`)) occupancy[block.unit][cursor] = 1;
+        cursor = addDays(cursor, 1);
+      }
+    }
+    return occupancy;
+  }
 
   async function loadCalendar(){
     const requestedYear = year;
@@ -1472,6 +1516,7 @@
         orixol: json.occupancy?.orixol || {},
         oketa: json.occupancy?.oketa || {}
       };
+      applyConfiguredBlocks(occupancyRaw, requestedYear);
 
       dayStatus = buildDayStatus(occupancyRaw);
       renderAll();
@@ -1489,9 +1534,20 @@
     }
   }
 
-  updateModalTexts();
-  updateYearNav();
-  loadCalendar();
+  window.addEventListener('storage', async event=>{
+    if(event.key !== 'solapetxea_calendar_config') return;
+    await loadCalendarConfig();
+    loadCalendar();
+  });
+
+  async function initialize(){
+    await loadCalendarConfig();
+    updateModalTexts();
+    updateYearNav();
+    loadCalendar();
+  }
+
+  initialize();
 </script>
 </body>
 </html>
