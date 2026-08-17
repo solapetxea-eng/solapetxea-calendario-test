@@ -52,7 +52,21 @@
     .yearChip button{background:transparent;border:none;color:#244d3b;cursor:pointer;padding:0;font-size:16px}
     .yearChip button:hover{color:#a23b32}
     footer{margin-top:20px;color:var(--muted);font-size:13px;text-align:center}
-    @media(max-width:720px){.shell{width:min(100% - 18px,1180px);margin-top:16px}header{display:block}.headerActions{justify-content:flex-start;margin-top:14px}.access{grid-template-columns:1fr}.rates{grid-template-columns:1fr}.card{padding:14px}.rateGrid{grid-template-columns:1fr 1fr}.btn{flex:1}}
+    .modal{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:1000}
+    .modal-content{background:#fff;border-radius:16px;padding:28px;max-width:500px;width:calc(100% - 20px);box-shadow:0 20px 60px rgba(0,0,0,.3)}
+    .modal-content h3{margin:0 0 20px;font-size:22px;color:var(--text)}
+    .form-group{margin-bottom:18px}
+    .form-group label{display:block;font-size:13px;font-weight:800;color:var(--text);margin-bottom:7px;text-transform:uppercase;letter-spacing:.04em}
+    .form-group input,.form-group select{width:100%;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--text);padding:10px;font:inherit}
+    .form-group input:focus,.form-group select:focus{outline:3px solid rgba(47,107,79,.14);border-color:var(--brand)}
+    .form-group small{display:block;margin-top:5px;color:var(--muted);font-size:12px}
+    .form-group.checkbox{display:flex;align-items:center;gap:10px}
+    .form-group.checkbox input{width:auto;height:18px}
+    .form-group.checkbox label{margin:0;text-transform:none;letter-spacing:normal}
+    .form-actions{display:flex;gap:10px;margin-top:24px}
+    .form-actions button{flex:1;padding:12px 16px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--text);font-weight:700;cursor:pointer;font-size:14px}
+    .form-actions .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+    @media(max-width:720px){.shell{width:min(100% - 18px,1180px);margin-top:16px}header{display:block}.headerActions{justify-content:flex-start;margin-top:14px}.access{grid-template-columns:1fr}.rates{grid-template-columns:1fr}.card{padding:14px}.rateGrid{grid-template-columns:1fr 1fr}.btn{flex:1}.modal-content{max-width:90vw;padding:20px}}
   </style>
 </head>
 <body>
@@ -146,6 +160,64 @@
         <button class="btn small" id="addOffer" type="button">+ Añadir oferta</button>
       </div>
       <div class="tableWrap"><table><thead><tr><th>Alojamiento</th><th>Desde</th><th>Hasta</th><th>Nombre</th><th>Tipo</th><th>Valor</th><th>Activa</th><th></th></tr></thead><tbody id="offerRows"></tbody></table></div>
+      
+      <!-- Modal para crear/editar oferta -->
+      <div id="offerModal" class="modal" style="display:none;">
+        <div class="modal-content">
+          <h3>Nueva Oferta</h3>
+          <form id="offerForm" onsubmit="return false;">
+            <div class="form-group">
+              <label>🏠 Alojamiento</label>
+              <select id="offerUnit" required>
+                <option value="">-- Selecciona --</option>
+                <option value="oketa">Oketa</option>
+                <option value="orixol">Orixol</option>
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label>📅 Desde (fecha de inicio)</label>
+              <input type="date" id="offerStartDate" required>
+            </div>
+            
+            <div class="form-group">
+              <label>📅 Hasta (fecha de fin)</label>
+              <input type="date" id="offerEndDate" required>
+            </div>
+            
+            <div class="form-group">
+              <label>📝 Nombre de la oferta</label>
+              <input type="text" id="offerName" placeholder="Ej: Oferta última hora, Puente de mayo..." required>
+              <small>Máx 100 caracteres</small>
+            </div>
+            
+            <div class="form-group">
+              <label>💰 Tipo de descuento</label>
+              <select id="offerType" onchange="updateOfferValueHint()">
+                <option value="fixed_price">Precio fijo (€/noche)</option>
+                <option value="percentage">Porcentaje (% descuento)</option>
+              </select>
+              <small id="offerTypeHint">Define el precio por noche</small>
+            </div>
+            
+            <div class="form-group">
+              <label>💵 Valor</label>
+              <input type="number" id="offerValue" min="0" step="0.01" placeholder="0" required>
+              <small id="offerValueExample">Ej: 50 € por noche</small>
+            </div>
+            
+            <div class="form-group checkbox">
+              <input type="checkbox" id="offerEnabled" checked>
+              <label for="offerEnabled">✓ Oferta activa</label>
+            </div>
+            
+            <div class="form-actions">
+              <button type="button" class="btn" onclick="closeOfferModal()">Cancelar</button>
+              <button type="button" class="btn primary" onclick="saveNewOffer()">Crear oferta</button>
+            </div>
+          </form>
+        </div>
+      </div>
     </section>
 
     <div class="headerActions"><button class="btn primary" id="saveBottom" type="button">Guardar cambios</button></div>
@@ -428,17 +500,60 @@
     }
 
     async function addNewOffer(){
-      const unit = 'oketa';
       const today = new Date().toISOString().split('T')[0];
+      document.getElementById('offerUnit').value = 'oketa';
+      document.getElementById('offerStartDate').value = today;
+      document.getElementById('offerEndDate').value = today;
+      document.getElementById('offerName').value = '';
+      document.getElementById('offerType').value = 'fixed_price';
+      document.getElementById('offerValue').value = '50';
+      document.getElementById('offerEnabled').checked = true;
+      updateOfferValueHint();
+      document.getElementById('offerModal').style.display = 'flex';
+    }
+
+    function closeOfferModal(){
+      document.getElementById('offerModal').style.display = 'none';
+    }
+
+    function updateOfferValueHint(){
+      const type = document.getElementById('offerType').value;
+      if(type === 'fixed_price'){
+        document.getElementById('offerTypeHint').textContent = 'Define el precio por noche en euros';
+        document.getElementById('offerValueExample').textContent = 'Ej: 50 € por noche';
+      }else{
+        document.getElementById('offerTypeHint').textContent = 'Define el descuento en porcentaje';
+        document.getElementById('offerValueExample').textContent = 'Ej: 20 % de descuento';
+      }
+    }
+
+    async function saveNewOffer(){
       try{
+        const unit = document.getElementById('offerUnit').value;
+        const start_date = document.getElementById('offerStartDate').value;
+        const end_date = document.getElementById('offerEndDate').value;
+        const name = document.getElementById('offerName').value;
+        const discount_type = document.getElementById('offerType').value;
+        const discount_value = Number(document.getElementById('offerValue').value);
+        const enabled = document.getElementById('offerEnabled').checked;
+
+        if(!unit) throw new Error('Selecciona un alojamiento');
+        if(!start_date || !end_date) throw new Error('Rellena las fechas');
+        if(start_date > end_date) throw new Error('La fecha de fin debe ser posterior a la de inicio');
+        if(!name.trim()) throw new Error('Escribe un nombre para la oferta');
+        if(discount_value < 0) throw new Error('El valor debe ser positivo');
+
         const response = await fetch('/api/admin/offers', {
           method:'POST',
           headers:headers(),
-          body:JSON.stringify({unit, start_date:today, end_date:today, name:'Nueva oferta', discount_type:'fixed_price', discount_value:0})
+          body:JSON.stringify({unit, start_date, end_date, name, discount_type, discount_value, enabled})
         });
         const data = await response.json();
         if(!response.ok || !data.ok) throw new Error(data.error || 'Error creando oferta');
+        
+        closeOfferModal();
         loadOffers();
+        notify('Oferta creada. No olvides pulsar "Guardar cambios".');
       }catch(error){
         notify(error.message, true);
       }
@@ -481,6 +596,15 @@
       const row = deleteBtn.closest('tr');
       const id = row.dataset.id;
       deleteOffer(id);
+    });
+    // Cerrar modal al hacer clic fuera o presionar Escape
+    document.getElementById('offerModal').addEventListener('click', event=>{
+      if(event.target.id === 'offerModal') closeOfferModal();
+    });
+    document.addEventListener('keydown', event=>{
+      if(event.key === 'Escape' && document.getElementById('offerModal').style.display !== 'none'){
+        closeOfferModal();
+      }
     });
     $('saveTop').onclick = $('saveBottom').onclick = async ()=>{
       await save();
