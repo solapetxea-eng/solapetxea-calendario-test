@@ -1,7 +1,7 @@
 // Cloudflare Pages Function
 // Endpoint: /api/calendar?year=2026 (también admite 2027)
 
-import { addManualBlocks, readCalendarConfig } from '../_shared/calendar-config.js';
+import { addManualBlocks, readCalendarConfig, readOffers } from '../_shared/calendar-config.js';
 
 const ICALS = {
   orixol: [
@@ -125,10 +125,11 @@ export async function onRequestGet(context) {
   const year = Number(url.searchParams.get('year') || new Date().getUTCFullYear());
 
   try {
-    const [orixol, oketa, config] = await Promise.all([
+    const [orixol, oketa, config, offers] = await Promise.all([
       loadRoom(ICALS.orixol, year),
       loadRoom(ICALS.oketa, year),
       readCalendarConfig(context.env),
+      readOffers(context.env),
     ]);
     const occupancy = addManualBlocks({ orixol, oketa }, config, year);
 
@@ -137,6 +138,7 @@ export async function onRequestGet(context) {
       year,
       cached_minutes: 5,
       occupancy,
+      offers: offers || [],
       updated_at: new Date().toISOString(),
     });
 

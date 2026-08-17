@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dev Server - Calendario Solapetxea</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: #f5f2ee;
+      color: #2d2a26;
+    }
+    .shell {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .header {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .header h1 { margin: 0 0 10px; font-size: 24px; }
+    .header p { margin: 0; color: #666; }
+    .links {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+      flex-wrap: wrap;
+    }
+    .link-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 20px;
+      background: #2f6b4f;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      font-size: 14px;
+    }
+    .link-btn:hover { background: #1f4a34; }
+    .info {
+      background: #e6f1eb;
+      border-left: 4px solid #2f6b4f;
+      padding: 15px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .info strong { color: #2f6b4f; }
+    .status {
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+      margin-bottom: 20px;
+      font-family: monospace;
+      font-size: 12px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .status-line { margin: 3px 0; }
+    .status-ok { color: #25d366; }
+    .status-warn { color: #ff6b35; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="header">
+      <h1>🚀 Dev Server Local - Calendario Solapetxea</h1>
+      <p>Todos los cambios funcionando sin necesidad de servidor Cloudflare</p>
+      <div class="links">
+        <button class="link-btn" onclick="openFile('index.html')">📅 Ver Calendario Público</button>
+        <button class="link-btn" onclick="openFile('admin/index.html')">⚙️ Panel de Administración</button>
+      </div>
+    </div>
+
+    <div class="info">
+      <strong>✅ Mock API activado</strong><br>
+      Los archivos cargan automáticamente <code>mock-api.js</code> que simula todas las APIs de Cloudflare Functions. Los datos se guardan en <code>localStorage</code>.
+    </div>
+
+    <div class="status" id="status">
+      <div class="status-line status-ok">✓ API Mock Server iniciado</div>
+      <div class="status-line status-ok">✓ Interceptando fetch globalmente</div>
+      <div class="status-line status-ok">✓ localStorage inicializado</div>
+    </div>
+  </div>
+
+  <script>
+    // Mock Storage
+    const mockDB = {
+      calendar: null,
+      years: [2026, 2027],
+      offers: []
+    };
+
+    // Cargar datos del localStorage
+    function loadMockData() {
+      const stored = localStorage.getItem('solapetxea_dev_data');
+      if (stored) {
+        const data = JSON.parse(stored);
+        Object.assign(mockDB, data);
+      } else {
+        saveMockData();
+      }
+    }
+
+    function saveMockData() {
+      localStorage.setItem('solapetxea_dev_data', JSON.stringify(mockDB));
+    }
+
+    loadMockData();
+
+    // Default Calendar Config
+    const DEFAULT_CONFIG = {
+      version: 1,
+      singleOccupancyDiscount: 10,
+      units: {
+        oketa: { name: 'Oketa', rates: { low: 95, high: 120 } },
+        orixol: { name: 'Orixol', rates: { low: 80, high: 90 } }
+      },
+      seasons: [],
+      minimumStays: [],
+      manualBlocks: []
+    };
+
+    // Generar temporadas por defecto
+    function getDefaultConfig() {
+      const config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+      for (const year of mockDB.years) {
+        config.seasons.push(
+          { id: `summer-${year}`, name: `Verano ${year}`, type: 'high', start: `${year}-06-15`, end: `${year}-09-15` },
+          { id: `october-${year}`, name: `Puente de octubre ${year}`, type: 'high', start: `${year}-10-09`, end: `${year}-10-12` },
+          { id: `december-${year}`, name: `Puente de diciembre ${year}`, type: 'high', start: `${year}-12-04`, end: `${year}-12-08` },
+          { id: `christmas-${year}`, name: `Navidad ${year}`, type: 'high', start: `${year}-12-24`, end: `${year}-12-31` }
+        );
+        config.minimumStays.push(
+          { id: `oketa-shoulder-${year}`, unit: 'oketa', start: `${year}-05-01`, end: `${year}-09-30`, nights: 2 },
+          { id: `oketa-summer-${year}`, unit: 'oketa', start: `${year}-07-01`, end: `${year}-08-31`, nights: 5 },
+          { id: `orixol-summer-${year}`, unit: 'orixol', start: `${year}-07-01`, end: `${year}-08-31`, nights: 2 }
+        );
+      }
+      return config;
+    }
+
+    // Mock API responses
+    const mockAPI = {
+      '/api/calendar': (req) => {
+        const url = new URL(req.url);
+        const year = Number(url.searchParams.get('year')) || 2026;
+        const occupancy = {
+          orixol: {},
+          oketa: {}
+        };
+        // Simular algunas fechas ocupadas
+        const start = new Date(`${year}-07-15`);
+        const end = new Date(`${year}-07-20`);
+        for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
+          const iso = d.toISOString().slice(0, 10);
+          occupancy.oketa[iso] = 1;
+        }
+        return {
+          ok: true,
+          year,
+          occupancy,
+          offers: mockDB.offers,
+          updated_at: new Date().toISOString()
+        };
+      },
+
+      '/api/settings': () => ({
+        ok: true,
+        config: mockDB.calendar || getDefaultConfig()
+      }),
+
+      '/api/admin/config': (req) => {
+        if (req.method === 'GET') {
+          return {
+            ok: true,
+            config: mockDB.calendar || getDefaultConfig()
+          };
+        }
+        if (req.method === 'PUT') {
+          return req.json().then(body => {
+            mockDB.calendar = body.config;
+            saveMockData();
+            return { ok: true, config: body.config, saved_at: new Date().toISOString() };
+          });
+        }
+      },
+
+      '/api/admin/years': (req) => {
+        if (req.method === 'GET') {
+          return { ok: true, years: mockDB.years };
+        }
+        if (req.method === 'POST') {
+          return req.json().then(body => {
+            const year = Number(body.year);
+            if (!mockDB.years.includes(year)) {
+              mockDB.years.push(year);
+              mockDB.years.sort((a, b) => a - b);
+              saveMockData();
+            }
+            return { ok: true, years: mockDB.years };
+          });
+        }
+        if (req.method === 'DELETE') {
+          return req.json().then(body => {
+            const year = Number(body.year);
+            mockDB.years = mockDB.years.filter(y => y !== year);
+            saveMockData();
+            return { ok: true, years: mockDB.years };
+          });
+        }
+      },
+
+      '/api/admin/offers': (req) => {
+        if (req.method === 'GET') {
+          return { ok: true, offers: mockDB.offers };
+        }
+        if (req.method === 'POST') {
+          return req.json().then(body => {
+            const id = `offer-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+            mockDB.offers.push({ ...body, id, enabled: true });
+            saveMockData();
+            return { ok: true, id };
+          });
+        }
+        if (req.method === 'PUT') {
+          return req.json().then(body => {
+            const idx = mockDB.offers.findIndex(o => o.id === body.id);
+            if (idx >= 0) {
+              mockDB.offers[idx] = { ...mockDB.offers[idx], ...body };
+              saveMockData();
+            }
+            return { ok: true };
+          });
+        }
+        if (req.method === 'DELETE') {
+          return req.json().then(body => {
+            mockDB.offers = mockDB.offers.filter(o => o.id !== body.id);
+            saveMockData();
+            return { ok: true };
+          });
+        }
+      }
+    };
+
+    // Interceptar fetch global
+    const originalFetch = window.fetch;
+    window.fetch = function(resource, init = {}) {
+      const url = typeof resource === 'string' ? resource : resource.url;
+      
+      // Buscar en mock API
+      for (const [route, handler] of Object.entries(mockAPI)) {
+        if (url.includes(route)) {
+          const method = init.method || 'GET';
+          const request = { url, method, json: () => Promise.resolve(init.body ? JSON.parse(init.body) : {}) };
+          
+          const response = handler(request);
+          if (response instanceof Promise) {
+            return response.then(data => new Response(JSON.stringify(data), {
+              status: 200,
+              headers: { 'content-type': 'application/json' }
+            }));
+          }
+          return Promise.resolve(new Response(JSON.stringify(response), {
+            status: 200,
+            headers: { 'content-type': 'application/json' }
+          }));
+        }
+      }
+
+      // Para otros recursos, usar fetch original
+      return originalFetch(resource, init);
+    };
+
+    function openCalendar() {
+      window.open('./index.html', '_blank');
+    }
+
+    function openAdmin() {
+      window.open('./admin/index.html', '_blank');
+    }
+
+    function openFile(path) {
+      window.open('./' + path, '_blank');
+    }
+
+    console.log('✓ Dev Server initialized');
+    console.log('Mock DB:', mockDB);
+  </script>
+</body>
+</html>

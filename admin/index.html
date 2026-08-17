@@ -4,6 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Administración · Calendario Solapetxea</title>
+
+  <!-- Dev Mode: Mock API para desarrollo local -->
+  <script>
+    if (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.protocol === 'file:') {
+      document.write('<script src="../mock-api.js"><\/script>');
+    }
+  </script>
   <style>
     :root{--bg:#f5f1ea;--card:#fff;--text:#213128;--muted:#6c776f;--line:#ddd8ce;--brand:#2f6b4f;--brand2:#e6f1eb;--danger:#a23b32;--shadow:0 12px 34px rgba(35,49,40,.09)}
     *{box-sizing:border-box}
@@ -25,6 +32,8 @@
     .field label{display:block;font-size:12px;font-weight:800;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em}
     input,select{width:100%;min-width:0;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--text);padding:9px 10px}
     input:focus,select:focus{outline:3px solid rgba(47,107,79,.14);border-color:var(--brand)}
+    input:disabled,select:disabled{background:#f0ede8;color:var(--muted);cursor:not-allowed;border-color:#e8e4dd}
+    .btn:disabled{opacity:.5;cursor:not-allowed;pointer-events:none}
     .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:16px;box-shadow:var(--shadow)}
     .cardHead{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:15px}
     h2{font-size:20px;margin:0}.hint{color:var(--muted);font-size:13px;margin:3px 0 0}
@@ -39,6 +48,9 @@
     td{padding:7px;border-top:1px solid #ece8df;vertical-align:middle}
     td.actions{width:55px;text-align:right}
     .empty{text-align:center;color:var(--muted);padding:22px!important}
+    .yearChip{display:inline-flex;align-items:center;gap:8px;background:var(--brand2);color:#244d3b;border-radius:8px;padding:8px 12px;font-weight:600;font-size:14px}
+    .yearChip button{background:transparent;border:none;color:#244d3b;cursor:pointer;padding:0;font-size:16px}
+    .yearChip button:hover{color:#a23b32}
     footer{margin-top:20px;color:var(--muted);font-size:13px;text-align:center}
     @media(max-width:720px){.shell{width:min(100% - 18px,1180px);margin-top:16px}header{display:block}.headerActions{justify-content:flex-start;margin-top:14px}.access{grid-template-columns:1fr}.rates{grid-template-columns:1fr}.card{padding:14px}.rateGrid{grid-template-columns:1fr 1fr}.btn{flex:1}}
   </style>
@@ -68,8 +80,22 @@
     </section>
 
     <section class="card">
-      <div class="cardHead">
-        <div><h2>Tarifas</h2><p class="hint">Precio por noche para cada alojamiento y temporada.</p></div>
+      <div class="cardHead">        <div><h2>Años disponibles</h2><p class=\"hint\">Gestiona qué años están activos en el calendario.</p></div>
+        <button class=\"btn small\" id=\"addYear\" type=\"button\">+ Añadir año</button>
+      </div>
+      <div id=\"yearsContainer\" style=\"display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px\"></div>
+      <div class=\"field\" id=\"yearInputContainer\" style=\"display:none;max-width:200px\">
+        <label for=\"newYear\">Nuevo año</label>
+        <div style=\"display:flex;gap:8px\">
+          <input id=\"newYear\" type=\"number\" min=\"2000\" max=\"2100\" placeholder=\"2028\">
+          <button class=\"btn\" id=\"confirmYear\" type=\"button\" style=\"flex:0\">✓</button>
+          <button class=\"btn\" id=\"cancelYear\" type=\"button\" style=\"flex:0\">✕</button>
+        </div>
+      </div>
+    </section>
+
+    <section class=\"card\">
+      <div class=\"cardHead\">        <div><h2>Tarifas</h2><p class="hint">Precio por noche para cada alojamiento y temporada.</p></div>
       </div>
       <div class="rates">
         <article class="unit">
@@ -114,6 +140,14 @@
       <div class="tableWrap"><table><thead><tr><th>Alojamiento</th><th>Entrada</th><th>Salida</th><th>Nota</th><th></th></tr></thead><tbody id="blockRows"></tbody></table></div>
     </section>
 
+    <section class="card">
+      <div class="cardHead">
+        <div><h2>Ofertas especiales</h2><p class="hint">Crea ofertas para cubrir huecos con precios especiales o descuentos.</p></div>
+        <button class="btn small" id="addOffer" type="button">+ Añadir oferta</button>
+      </div>
+      <div class="tableWrap"><table><thead><tr><th>Alojamiento</th><th>Desde</th><th>Hasta</th><th>Nombre</th><th>Tipo</th><th>Valor</th><th>Activa</th><th></th></tr></thead><tbody id="offerRows"></tbody></table></div>
+    </section>
+
     <div class="headerActions"><button class="btn primary" id="saveBottom" type="button">Guardar cambios</button></div>
     <footer>Los cambios guardados en Cloudflare se aplican al calendario público. Las reservas externas continúan llegando mediante iCal.</footer>
   </main>
@@ -146,6 +180,16 @@
     const uid = prefix => `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     const isLocal = ['localhost','127.0.0.1'].includes(location.hostname);
 
+    function setControlsDisabled(disabled) {
+      const controls = [
+        ...document.querySelectorAll('input:not(#password)'),
+        ...document.querySelectorAll('select'),
+        $('addSeason'), $('addMinimum'), $('addBlock'),
+        $('saveTop'), $('saveBottom')
+      ];
+      controls.forEach(ctrl => ctrl.disabled = disabled);
+    }
+
     function notify(message, error=false){
       $('notice').textContent = message;
       $('notice').className = `notice show${error ? ' error' : ''}`;
@@ -174,15 +218,21 @@
     }
 
     async function load(){
+      setControlsDisabled(true);
+      $('reload').disabled = true;
       try{
         config = await requestConfig();
         render();
+        setControlsDisabled(false);
         notify('Configuración cargada desde Cloudflare.');
       }catch(error){
         const local = localStorage.getItem(STORAGE_KEY);
-        if(isLocal && local){ config = JSON.parse(local); render(); notify('Configuración de demostración cargada en local.'); return; }
-        if(isLocal){ render(); notify('Modo demostración local: puedes editar y guardar para probar la aplicación.'); return; }
+        if(isLocal && local){ config = JSON.parse(local); render(); setControlsDisabled(false); notify('Configuración de demostración cargada en local.'); return; }
+        if(isLocal){ render(); setControlsDisabled(false); notify('Modo demostración local: puedes editar y guardar para probar la aplicación.'); return; }
+        setControlsDisabled(true);
         notify(error.message, true);
+      }finally{
+        $('reload').disabled = false;
       }
     }
 
@@ -249,6 +299,167 @@
     function addMinimum(){config.minimumStays.push({id:uid('minimum'),unit:'oketa',start:'2026-01-01',end:'2026-01-01',nights:1});render()}
     function addBlock(){config.manualBlocks.push({id:uid('block'),unit:'oketa',start:'2026-01-01',end:'2026-01-02',note:''});render()}
 
+    let years = [2026, 2027];
+
+    function renderYears(){
+      $('yearsContainer').innerHTML = years.map(year=>`<div class=\"yearChip\">${year}<button class=\"deleteYear\" type=\"button\" data-year=\"${year}\">×</button></div>`).join('');
+    }
+
+    async function loadYears(){
+      try{
+        const response = await fetch('/api/admin/years', {headers:headers(), cache:'no-store'});
+        const data = await response.json();
+        if(!response.ok || !data.ok) throw new Error(data.error || 'No se pudo cargar años');
+        years = data.years || [2026, 2027];
+        renderYears();
+      }catch(error){
+        console.warn('Error cargando años:', error.message);
+        years = [2026, 2027];
+        renderYears();
+      }
+    }
+
+    async function addNewYear(){
+      const year = Number($('newYear').value);
+      if(!Number.isInteger(year) || year < 2000 || year > 2100){
+        notify('Año inválido. Debe estar entre 2000 y 2100.', true);
+        return;
+      }
+      try{
+        const response = await fetch('/api/admin/years', {
+          method:'POST',
+          headers:headers(),
+          body:JSON.stringify({year})
+        });
+        const data = await response.json();
+        if(!response.ok || !data.ok) throw new Error(data.error || 'No se pudo agregar año');
+        years = data.years || [];
+        renderYears();
+        $('newYear').value = '';
+        $('yearInputContainer').style.display = 'none';
+        notify(`Año ${year} agregado exitosamente.`);
+      }catch(error){
+        notify(error.message, true);
+      }
+    }
+
+    async function deleteYear(year){
+      const currentYear = new Date().getFullYear();
+      if(year <= currentYear){
+        notify('No se pueden eliminar años pasados o del año actual.', true);
+        return;
+      }
+      if(!confirm(`¿Estás seguro de que deseas eliminar el año ${year}? Esta acción no se puede deshacer.`)) return;
+      try{
+        const response = await fetch('/api/admin/years', {
+          method:'DELETE',
+          headers:headers(),
+          body:JSON.stringify({year})
+        });
+        const data = await response.json();
+        if(!response.ok || !data.ok) throw new Error(data.error || 'No se pudo eliminar año');
+        years = data.years || [];
+        renderYears();
+        notify(`Año ${year} eliminado.`);
+      }catch(error){
+        notify(error.message, true);
+      }
+    }
+
+    let offers = [];
+
+    async function loadOffers(){
+      try{
+        const response = await fetch('/api/admin/offers', {headers:headers(), cache:'no-store'});
+        const data = await response.json();
+        if(!response.ok || !data.ok) throw new Error(data.error || 'No se pudo cargar ofertas');
+        offers = data.offers || [];
+        renderOffers();
+      }catch(error){
+        console.warn('Error cargando ofertas:', error.message);
+        offers = [];
+        renderOffers();
+      }
+    }
+
+    function renderOffers(){
+      $('offerRows').innerHTML = offers.map(item => `
+        <tr data-id="${esc(item.id)}">
+          <td><select data-field="unit">${unitOptions(item.unit)}</select></td>
+          <td><input data-field="start_date" type="date" value="${esc(item.start_date)}"></td>
+          <td><input data-field="end_date" type="date" value="${esc(item.end_date)}"></td>
+          <td><input data-field="name" value="${esc(item.name)}" placeholder="Ej: Oferta última hora"></td>
+          <td><select data-field="discount_type"><option value="fixed_price" ${item.discount_type==='fixed_price'?'selected':''}>Precio fijo</option><option value="percentage" ${item.discount_type==='percentage'?'selected':''}>% Descuento</option></select></td>
+          <td><input data-field="discount_value" type="number" min="0" step="0.01" value="${Number(item.discount_value)}"></td>
+          <td><input type="checkbox" data-field="enabled" ${item.enabled?'checked':''}></td>
+          <td class="actions"><button class="btn danger remove-offer" type="button">Eliminar</button></td>
+        </tr>
+      `).join('') || '<tr><td class="empty" colspan="8">No hay ofertas.</td></tr>';
+    }
+
+    async function saveOffers(){
+      try{
+        const rows = [...$('offerRows').querySelectorAll('tr[data-id]')];
+        for(const row of rows){
+          const id = row.dataset.id;
+          const unit = row.querySelector('[data-field="unit"]').value;
+          const start_date = row.querySelector('[data-field="start_date"]').value;
+          const end_date = row.querySelector('[data-field="end_date"]').value;
+          const name = row.querySelector('[data-field="name"]').value;
+          const discount_type = row.querySelector('[data-field="discount_type"]').value;
+          const discount_value = Number(row.querySelector('[data-field="discount_value"]').value);
+          const enabled = row.querySelector('[data-field="enabled"]').checked;
+          
+          if(!start_date || !end_date || start_date > end_date) throw new Error('Revisa las fechas de las ofertas');
+          if(!name) throw new Error('Todas las ofertas deben tener un nombre');
+          
+          const response = await fetch('/api/admin/offers', {
+            method:'PUT',
+            headers:headers(),
+            body:JSON.stringify({id, unit, start_date, end_date, name, discount_type, discount_value, enabled})
+          });
+          const data = await response.json();
+          if(!response.ok || !data.ok) throw new Error(data.error || 'Error guardando oferta');
+        }
+        notify('Ofertas guardadas.');
+      }catch(error){
+        notify(error.message, true);
+      }
+    }
+
+    async function addNewOffer(){
+      const unit = 'oketa';
+      const today = new Date().toISOString().split('T')[0];
+      try{
+        const response = await fetch('/api/admin/offers', {
+          method:'POST',
+          headers:headers(),
+          body:JSON.stringify({unit, start_date:today, end_date:today, name:'Nueva oferta', discount_type:'fixed_price', discount_value:0})
+        });
+        const data = await response.json();
+        if(!response.ok || !data.ok) throw new Error(data.error || 'Error creando oferta');
+        loadOffers();
+      }catch(error){
+        notify(error.message, true);
+      }
+    }
+
+    async function deleteOffer(id){
+      if(!confirm('¿Estás seguro de que deseas eliminar esta oferta?')) return;
+      try{
+        const response = await fetch('/api/admin/offers', {
+          method:'DELETE',
+          headers:headers(),
+          body:JSON.stringify({id})
+        });
+        const data = await response.json();
+        if(!response.ok || !data.ok) throw new Error(data.error || 'Error eliminando oferta');
+        loadOffers();
+      }catch(error){
+        notify(error.message, true);
+      }
+    }
+
     document.addEventListener('click', event=>{
       const remove = event.target.closest('.remove');
       if(!remove) return;
@@ -258,13 +469,37 @@
       config[key] = config[key].filter(item=>item.id!==row.dataset.id);
       render();
     });
-    $('saveTop').onclick = $('saveBottom').onclick = save;
+    document.addEventListener('click', event=>{
+      const deleteBtn = event.target.closest('.deleteYear');
+      if(!deleteBtn) return;
+      const year = Number(deleteBtn.dataset.year);
+      deleteYear(year);
+    });
+    document.addEventListener('click', event=>{
+      const deleteBtn = event.target.closest('.remove-offer');
+      if(!deleteBtn) return;
+      const row = deleteBtn.closest('tr');
+      const id = row.dataset.id;
+      deleteOffer(id);
+    });
+    $('saveTop').onclick = $('saveBottom').onclick = async ()=>{
+      await save();
+      await saveOffers();
+    };
     $('reload').onclick = load;
     $('addSeason').onclick = addSeason;
     $('addMinimum').onclick = addMinimum;
     $('addBlock').onclick = addBlock;
+    $('addOffer').onclick = addNewOffer;
+    $('addYear').onclick = () => $('yearInputContainer').style.display = 'block';
+    $('confirmYear').onclick = addNewYear;
+    $('cancelYear').onclick = () => $('yearInputContainer').style.display = 'none';
+    $('newYear').onkeypress = event => event.key === 'Enter' && addNewYear();
     $('password').value = sessionStorage.getItem('solapetxea_admin_password') || '';
+    setControlsDisabled(true);
     load();
+    loadYears();
+    loadOffers();
   </script>
 </body>
 </html>

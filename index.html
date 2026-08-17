@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Solapetxea · Disponibilidad</title>
 
+  <!-- Dev Mode: Mock API para desarrollo local -->
+  <script>
+    if (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.protocol === 'file:') {
+      document.write('<script src="./mock-api.js"><\/script>');
+    }
+  </script>
+
   <!-- Google Analytics -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-X3MZXH82R2"></script>
   <script>
@@ -303,6 +310,20 @@
     .season.low{background:var(--season-low)}
     .season.high{background:var(--season-high)}
 
+    .offer-badge{
+      position:absolute;
+      top:2px;
+      right:2px;
+      background:#ff6b35;
+      color:#fff;
+      font-size:10px;
+      font-weight:800;
+      padding:2px 5px;
+      border-radius:4px;
+      z-index:2;
+      line-height:1
+    }
+
     .cell.in-range::after{
       content:"";
       position:absolute;
@@ -585,10 +606,7 @@
     </div>
   </section>
 
-  <nav class="yearNav" aria-label="Seleccionar año">
-    <button type="button" class="yearBtn" data-year="2026" aria-pressed="false">2026</button>
-    <button type="button" class="yearBtn" data-year="2027" aria-pressed="false">2027</button>
-  </nav>
+  <nav class="yearNav" aria-label="Seleccionar año" id="yearNavContainer"></nav>
 
   <div class="mobileNav" id="mobileNav">
     <button class="navBtn" id="prevMonth">‹</button>
@@ -693,7 +711,7 @@
   const monthNames = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
   const weekdayNames = ['dom','lun','mar','mié','jue','vie','sáb'];
   const dows = ['dom','lun','mar','mié','jue','vie','sáb'];
-  const availableYears = [2026, 2027];
+  let availableYears = [2026, 2027];
   const currentYear = new Date().getFullYear();
   let year = availableYears.includes(currentYear) ? currentYear : availableYears[0];
   const phone = '34617414914';
@@ -722,7 +740,8 @@
   const formPriceSub = document.getElementById('formPriceSub');
   const discountTag = document.getElementById('discountTag');
   const langSelect = document.getElementById('langSelect');
-  const yearButtons = document.querySelectorAll('.yearBtn');
+  const yearNavContainer = document.getElementById('yearNavContainer');
+  let yearButtons = [];
 
   let activeMonth = currentYear === year ? new Date().getMonth() : 0;
 
@@ -733,7 +752,35 @@
   let selectedUnit = '';
   let currentModalUnits = [];
   let calendarConfig = null;
+  let activeOffers = [];
   const trackedCalendarYears = new Set();
+
+  async function loadAvailableYears() {
+    try {
+      const response = await fetch('/api/admin/years', { cache: 'no-store' });
+      const data = await response.json();
+      if (response.ok && data.ok) {
+        availableYears = data.years || [2026, 2027];
+      }
+    } catch (error) {
+      console.warn('Error cargando años disponibles, usando predeterminados:', error);
+      availableYears = [2026, 2027];
+    }
+    renderYearButtons();
+    if (!availableYears.includes(year)) {
+      year = availableYears[0];
+    }
+  }
+
+  function renderYearButtons() {
+    yearNavContainer.innerHTML = availableYears.map(y => 
+      `<button type="button" class="yearBtn" data-year="${y}" aria-pressed="${y === year ? 'true' : 'false'}">${y}</button>`
+    ).join('');
+    yearButtons = document.querySelectorAll('.yearBtn');
+    yearButtons.forEach(button => {
+      button.addEventListener('click', () => selectYear(Number(button.dataset.year)));
+    });
+  }
 
   const translations = {
     es: {
@@ -1105,6 +1152,13 @@
       s.className = `season ${getSeason(iso)}`;
       c.appendChild(s);
 
+      if(activeOffers.some(o => o.unit && ['oketa', 'orixol'].includes(o.unit) && o.start_date <= iso && iso < o.end_date)){
+        const badge = document.createElement('div');
+        badge.className = 'offer-badge';
+        badge.textContent = 'OFERTA';
+        c.appendChild(badge);
+      }
+
       if(status !== 'past'){
         c.addEventListener('click', ()=>handleDayClick(iso));
       }
@@ -1220,13 +1274,29 @@
     return 1;
   }
 
+  function getApplicableOffer(unit, iso){
+    return activeOffers.find(o => o.unit === unit && o.start_date <= iso && iso < o.end_date);
+  }
+
   function getNightRate(unit, iso){
-    const season = getSeason(iso);
-    const configuredRate = calendarConfig?.units?.[unit]?.rates?.[season];
-    if(Number.isFinite(Number(configuredRate))) return Number(configuredRate);
-    if(unit === 'oketa') return season === 'high' ? 120 : 95;
-    if(unit === 'orixol') return season === 'high' ? 90 : 80;
-    return 0;
+    const baseRate = (()=>{
+      const season = getSeason(iso);
+      const configuredRate = calendarConfig?.units?.[unit]?.rates?.[season];
+      if(Number.isFinite(Number(configuredRate))) return Number(configuredRate);
+      if(unit === 'oketa') return season === 'high' ? 120 : 95;
+      if(unit === 'orixol') return season === 'high' ? 90 : 80;
+      return 0;
+    })();
+    
+    const offer = getApplicableOffer(unit, iso);
+    if(offer){
+      if(offer.discount_type === 'fixed_price') return Number(offer.discount_value);
+      if(offer.discount_type === 'percentage'){
+        const discount = Number(offer.discount_value);
+        return Math.round(baseRate * (1 - discount / 100) * 100) / 100;
+      }
+    }
+    return baseRate;
   }
 
   function getStayBasePrice(unit, startIso, endIso){
@@ -1411,9 +1481,7 @@
     updateMobileMonth();
   };
 
-  yearButtons.forEach(button=>{
-    button.addEventListener('click', ()=>selectYear(Number(button.dataset.year)));
-  });
+  loadAvailableYears();
 
   document.getElementById('closeBtn').onclick = closeModal;
   document.getElementById('backBtn').onclick = ()=>{
@@ -1516,6 +1584,7 @@
         orixol: json.occupancy?.orixol || {},
         oketa: json.occupancy?.oketa || {}
       };
+      activeOffers = json.offers || [];
       applyConfiguredBlocks(occupancyRaw, requestedYear);
 
       dayStatus = buildDayStatus(occupancyRaw);

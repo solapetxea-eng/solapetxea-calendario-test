@@ -136,3 +136,35 @@ export function addManualBlocks(occupancy, config, year) {
   }
   return occupancy;
 }
+
+export async function getActiveYears(env) {
+  if (!env?.DB) return [2026, 2027];
+
+  try {
+    const rows = await env.DB.prepare(
+      'SELECT year FROM active_years WHERE enabled = 1 ORDER BY year ASC'
+    ).all();
+    return rows.results?.map(r => r.year) || [2026, 2027];
+  } catch {
+    return [2026, 2027];
+  }
+}
+
+export async function readOffers(env) {
+  if (!env?.DB) return [];
+
+  try {
+    const rows = await env.DB.prepare(
+      'SELECT id, unit, start_date, end_date, name, discount_type, discount_value, enabled FROM offers WHERE enabled = 1 ORDER BY start_date ASC'
+    ).all();
+    return rows.results || [];
+  } catch {
+    return [];
+  }
+}
+
+export function getApplicableOffers(unit, startDate, offers) {
+  return offers.filter(offer => 
+    offer.unit === unit && offer.start_date <= startDate && startDate < offer.end_date
+  );
+}
