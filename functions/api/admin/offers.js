@@ -25,7 +25,15 @@ function sanitizeOffer(item) {
   const value = Number(item?.discount_value);
   const discountValue = Number.isFinite(value) ? Math.max(0, value) : 0;
   
-  return { start, end, name, unit, discountType, discountValue };
+ return {
+  id: typeof item?.id === 'string' ? item.id : '',
+  start,
+  end,
+  name,
+  unit,
+  discountType,
+  discountValue
+};
 }
 
 export async function onRequestGet(context) {
