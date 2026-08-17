@@ -537,25 +537,36 @@
         const discount_value = Number(document.getElementById('offerValue').value);
         const enabled = document.getElementById('offerEnabled').checked;
 
+        console.log('📝 Creando oferta:', {unit, start_date, end_date, name, discount_type, discount_value, enabled});
+
         if(!unit) throw new Error('Selecciona un alojamiento');
         if(!start_date || !end_date) throw new Error('Rellena las fechas');
         if(start_date > end_date) throw new Error('La fecha de fin debe ser posterior a la de inicio');
         if(!name.trim()) throw new Error('Escribe un nombre para la oferta');
         if(discount_value < 0) throw new Error('El valor debe ser positivo');
 
+        console.log('✅ Validaciones OK, enviando a servidor...');
+
         const response = await fetch('/api/admin/offers', {
           method:'POST',
           headers:headers(),
           body:JSON.stringify({unit, start_date, end_date, name, discount_type, discount_value, enabled})
         });
+        
+        console.log('📡 Respuesta del servidor:', response.status, response.ok);
+        
         const data = await response.json();
+        console.log('📦 Datos recibidos:', data);
+        
         if(!response.ok || !data.ok) throw new Error(data.error || 'Error creando oferta');
         
+        console.log('🎉 Oferta creada exitosamente');
         closeOfferModal();
         loadOffers();
-        notify('Oferta creada. No olvides pulsar "Guardar cambios".');
+        notify('✅ Oferta creada. No olvides pulsar "Guardar cambios".');
       }catch(error){
-        notify(error.message, true);
+        console.error('❌ Error:', error.message);
+        notify('❌ ' + error.message, true);
       }
     }
 
