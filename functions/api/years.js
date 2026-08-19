@@ -1,4 +1,4 @@
-import { readActiveYears } from '../_shared/calendar-config.js';
+import { getActiveYears } from '../_shared/calendar-config.js';
 
 function json(body, status = 200) {
   return Response.json(body, {
@@ -8,6 +8,6 @@ function json(body, status = 200) {
 }
 
 export async function onRequestGet(context) {
-  const years = await readActiveYears(context.env);
+  const years = await getActiveYears(context.env);
   return json({ ok: true, years });
 }
