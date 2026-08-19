@@ -25,15 +25,29 @@ function sanitizeOffer(item) {
   const value = Number(item?.discount_value);
   const discountValue = Number.isFinite(value) ? Math.max(0, value) : 0;
   
- return {
-  id: typeof item?.id === 'string' ? item.id : '',
-  start,
-  end,
-  name,
-  unit,
-  discountType,
-  discountValue
-};
+  return {
+    id: typeof item?.id === 'string' ? item.id : '',
+    start,
+    end,
+    name,
+    unit,
+    discountType,
+    discountValue,
+    enabled: item?.enabled !== false
+  };
+}
+
+function publicOffer(offer) {
+  return {
+    id: offer.id,
+    unit: offer.unit,
+    start_date: offer.start,
+    end_date: offer.end,
+    name: offer.name,
+    discount_type: offer.discountType,
+    discount_value: offer.discountValue,
+    enabled: offer.enabled
+  };
 }
 
 export async function onRequestGet(context) {
@@ -77,7 +91,7 @@ export async function onRequestPost(context) {
     const id = `offer-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     const offer = sanitizeOffer({ ...body, id });
     
-    if (!offer.start || !offer.end || offer.start > offer.end) {
+    if (!offer.start || !offer.end || offer.start >= offer.end) {
       return json({ ok: false, error: 'Fechas inválidas. El inicio debe ser anterior al final.' }, 400);
     }
     
@@ -95,7 +109,7 @@ export async function onRequestPost(context) {
     
     await context.env.DB.prepare(`
       INSERT INTO offers (id, unit, start_date, end_date, name, discount_type, discount_value, enabled)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       offer.id,
       offer.unit,
@@ -103,10 +117,11 @@ export async function onRequestPost(context) {
       offer.end,
       offer.name,
       offer.discountType,
-      offer.discountValue
+      offer.discountValue,
+      offer.enabled ? 1 : 0
     ).run();
     
-    return json({ ok: true, id: offer.id });
+    return json({ ok: true, id: offer.id, offer: publicOffer(offer) });
   } catch (error) {
     return json({ ok: false, error: error instanceof Error ? error.message : 'No se pudo crear la oferta.' }, 400);
   }
@@ -131,7 +146,7 @@ export async function onRequestPut(context) {
     
     const offer = sanitizeOffer(updates);
     
-    if (offer.start && offer.end && offer.start > offer.end) {
+    if (offer.start && offer.end && offer.start >= offer.end) {
       return json({ ok: false, error: 'Fechas inválidas.' }, 400);
     }
     

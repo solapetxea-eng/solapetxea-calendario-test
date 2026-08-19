@@ -310,19 +310,28 @@
     .season.low{background:var(--season-low)}
     .season.high{background:var(--season-high)}
 
-    .offer-badge{
+    .offer-badges{
       position:absolute;
       top:2px;
       right:2px;
+      display:flex;
+      flex-direction:column;
+      align-items:flex-end;
+      gap:2px;
+      z-index:2;
+    }
+
+    .offer-badge{
       background:#ff6b35;
       color:#fff;
       font-size:10px;
       font-weight:800;
       padding:2px 5px;
       border-radius:4px;
-      z-index:2;
       line-height:1
     }
+    .offer-badge.oketa{background:var(--oketa)}
+    .offer-badge.orixol{background:var(--orixol)}
 
     .cell.in-range::after{
       content:"";
@@ -499,6 +508,26 @@
       font-size:12px;
       font-weight:800;
     }
+    .offerNotice{
+      margin:10px 0 12px;
+      padding:12px 14px;
+      border-radius:10px;
+      background:#fff7ed;
+      border:2px solid #ff6b35;
+      color:var(--text);
+    }
+    .offerNotice.oketa{border-color:var(--oketa);background:#fff0f8}
+    .offerNotice.orixol{border-color:var(--orixol);background:#f4f1ff}
+    .offerNoticeTitle{
+      font-size:18px;
+      font-weight:900;
+      margin-bottom:3px;
+    }
+    .offerNoticeText{
+      font-size:13px;
+      font-weight:750;
+      color:var(--muted);
+    }
 
     .actions{
       display:flex;
@@ -642,6 +671,11 @@
     <div id="form" class="form">
       <h4 id="formTitle">Consultar</h4>
 
+      <div id="offerNotice" class="offerNotice" style="display:none;">
+        <div class="offerNoticeTitle" id="offerNoticeTitle"></div>
+        <div class="offerNoticeText" id="offerNoticeText"></div>
+      </div>
+
       <div class="row">
         <div class="field">
           <label id="labelName">Nombre</label>
@@ -757,7 +791,7 @@
 
   async function loadAvailableYears() {
     try {
-      const response = await fetch('/api/admin/years', { cache: 'no-store' });
+      const response = await fetch('/api/years', { cache: 'no-store' });
       const data = await response.json();
       if (response.ok && data.ok) {
         availableYears = data.years || [2026, 2027];
@@ -808,6 +842,10 @@
       estimatedAdjusted: '{unit} · Precio base {base} · Precio ajustado por 1 huésped.',
       estimatedNormal: '{unit} · Precio calculado según las noches seleccionadas.',
       discount: '-{discount} % por ocupación individual',
+      offerNoticeTitle: 'Oferta especial: {name}',
+      offerNoticeFixed: 'Precio especial aplicado: {value} por noche en {unit}.',
+      offerNoticePercent: 'Descuento aplicado: {value} en {unit}.',
+      offerNoticeMixed: 'Oferta aplicada a parte de tu estancia en {unit}.',
       message: 'Mensaje',
       messagePlaceholder: 'Escribe aquí si quieres añadir algo',
       helper: 'Vamos a abrir WhatsApp con tu consulta preparada.<br>Solo tendrás que pulsar enviar.',
@@ -856,6 +894,10 @@
       estimatedAdjusted: '{unit} · Oinarrizko prezioa {base} · 1 gonbidatuarentzako egokitutako prezioa.',
       estimatedNormal: '{unit} · Hautatutako gauen arabera kalkulatutako prezioa.',
       discount: '-% {discount} pertsona bakarreko okupazioagatik',
+      offerNoticeTitle: 'Eskaintza berezia: {name}',
+      offerNoticeFixed: 'Prezio berezia aplikatuta: {value} gau bakoitzeko {unit} ostatuan.',
+      offerNoticePercent: 'Deskontua aplikatuta: {value} {unit} ostatuan.',
+      offerNoticeMixed: 'Eskaintza zure egonaldiaren zati bati aplikatuta {unit} ostatuan.',
       message: 'Mezua',
       messagePlaceholder: 'Idatzi hemen zerbait gehitu nahi baduzu',
       helper: 'Zure kontsulta prestatuta duen WhatsApp irekiko dugu.<br>Bidali sakatu besterik ez duzu egin beharko.',
@@ -904,6 +946,10 @@
       estimatedAdjusted: '{unit} · Base price {base} · Adjusted price for 1 guest.',
       estimatedNormal: '{unit} · Price calculated according to the selected nights.',
       discount: '-{discount}% for single occupancy',
+      offerNoticeTitle: 'Special offer: {name}',
+      offerNoticeFixed: 'Special price applied: {value} per night at {unit}.',
+      offerNoticePercent: 'Discount applied: {value} at {unit}.',
+      offerNoticeMixed: 'Offer applied to part of your stay at {unit}.',
       message: 'Message',
       messagePlaceholder: 'Write here if you want to add something',
       helper: 'We are about to open WhatsApp with your enquiry prepared.<br>You will only need to press send.',
@@ -1152,11 +1198,18 @@
       s.className = `season ${getSeason(iso)}`;
       c.appendChild(s);
 
-      if(activeOffers.some(o => o.unit && ['oketa', 'orixol'].includes(o.unit) && o.start_date <= iso && iso < o.end_date)){
-        const badge = document.createElement('div');
-        badge.className = 'offer-badge';
-        badge.textContent = 'OFERTA';
-        c.appendChild(badge);
+      const offersForDate = getOffersForDate(iso);
+      if(offersForDate.length){
+        const badges = document.createElement('div');
+        badges.className = 'offer-badges';
+        offersForDate.forEach(offer=>{
+          const badge = document.createElement('div');
+          badge.className = `offer-badge ${offer.unit}`;
+          badge.textContent = getUnitName(offer.unit);
+          badge.title = offer.name || 'Oferta';
+          badges.appendChild(badge);
+        });
+        c.appendChild(badges);
       }
 
       if(status !== 'past'){
@@ -1278,6 +1331,22 @@
     return activeOffers.find(o => o.unit === unit && o.start_date <= iso && iso < o.end_date);
   }
 
+  function getOffersForDate(iso){
+    return ['oketa','orixol']
+      .map(unit => getApplicableOffer(unit, iso))
+      .filter(Boolean);
+  }
+
+  function getOffersForRange(unit, startIso, endIso){
+    const nights = diffNights(startIso, endIso);
+    const found = new Map();
+    for(let i=0; i<nights; i++){
+      const offer = getApplicableOffer(unit, addDays(startIso, i));
+      if(offer) found.set(offer.id || `${offer.unit}-${offer.start_date}-${offer.end_date}-${offer.name}`, offer);
+    }
+    return [...found.values()];
+  }
+
   function getNightRate(unit, iso){
     const baseRate = (()=>{
       const season = getSeason(iso);
@@ -1327,6 +1396,35 @@
     return t(`unitPrice_${unit}`, { total: euro(total), low: euro(Number(rates.low)), high: euro(Number(rates.high)) });
   }
 
+  function updateOfferNotice(){
+    const notice = document.getElementById('offerNotice');
+    const title = document.getElementById('offerNoticeTitle');
+    const text = document.getElementById('offerNoticeText');
+    if(!notice || !selectedUnit || !selectedStart || !selectedEnd){
+      if(notice) notice.style.display = 'none';
+      return;
+    }
+
+    const matchingOffers = getOffersForRange(selectedUnit, selectedStart, selectedEnd);
+    if(!matchingOffers.length){
+      notice.style.display = 'none';
+      return;
+    }
+
+    const offer = matchingOffers[0];
+    const unitText = getUnitName(selectedUnit);
+    title.textContent = t('offerNoticeTitle', { name: offer.name || unitText });
+    if(matchingOffers.length > 1){
+      text.textContent = t('offerNoticeMixed', { unit: unitText });
+    }else if(offer.discount_type === 'fixed_price'){
+      text.textContent = t('offerNoticeFixed', { unit: unitText, value: euro(Number(offer.discount_value)) });
+    }else{
+      text.textContent = t('offerNoticePercent', { unit: unitText, value: `${Number(offer.discount_value)}%` });
+    }
+    notice.className = `offerNotice ${selectedUnit}`;
+    notice.style.display = 'block';
+  }
+
   function updateFormPrice(){
     if(!selectedUnit || !selectedStart || !selectedEnd) return;
     const guests = Number(guestsInput.value || 2);
@@ -1345,6 +1443,7 @@
       discountTag.style.display = 'none';
       formPriceSub.textContent = t('estimatedNormal', { unit: unitText });
     }
+    updateOfferNotice();
   }
 
   function renderChoiceButtons(){
@@ -1430,6 +1529,7 @@
     guestsInput.value = '2';
 
     form.classList.remove('show');
+    document.getElementById('offerNotice').style.display = 'none';
     closeArea.style.display = 'flex';
 
     updateModalTexts();

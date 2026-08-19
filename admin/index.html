@@ -181,7 +181,7 @@
             </div>
             
             <div class="form-group">
-              <label>📅 Hasta (fecha de fin)</label>
+              <label>📅 Hasta (salida, no incluida)</label>
               <input type="date" id="offerEndDate" required>
             </div>
             
@@ -449,8 +449,8 @@
         renderOffers();
       }catch(error){
         console.warn('Error cargando ofertas:', error.message);
-        offers = [];
-        renderOffers();
+        if(!offers.length) renderOffers();
+        notify('No se pudieron cargar las ofertas en administracion: ' + error.message, true);
       }
     }
 
@@ -482,7 +482,7 @@
           const discount_value = Number(row.querySelector('[data-field="discount_value"]').value);
           const enabled = row.querySelector('[data-field="enabled"]').checked;
           
-          if(!start_date || !end_date || start_date > end_date) throw new Error('Revisa las fechas de las ofertas');
+          if(!start_date || !end_date || start_date >= end_date) throw new Error('Revisa las fechas de las ofertas');
           if(!name) throw new Error('Todas las ofertas deben tener un nombre');
           
           const response = await fetch('/api/admin/offers', {
@@ -501,9 +501,12 @@
 
     async function addNewOffer(){
       const today = new Date().toISOString().split('T')[0];
+      const tomorrowDate = new Date();
+      tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+      const tomorrow = tomorrowDate.toISOString().split('T')[0];
       document.getElementById('offerUnit').value = 'oketa';
       document.getElementById('offerStartDate').value = today;
-      document.getElementById('offerEndDate').value = today;
+      document.getElementById('offerEndDate').value = tomorrow;
       document.getElementById('offerName').value = '';
       document.getElementById('offerType').value = 'fixed_price';
       document.getElementById('offerValue').value = '50';
@@ -541,9 +544,10 @@
 
         if(!unit) throw new Error('Selecciona un alojamiento');
         if(!start_date || !end_date) throw new Error('Rellena las fechas');
-        if(start_date > end_date) throw new Error('La fecha de fin debe ser posterior a la de inicio');
+        if(start_date >= end_date) throw new Error('La fecha de salida debe ser posterior a la de inicio');
         if(!name.trim()) throw new Error('Escribe un nombre para la oferta');
-        if(discount_value < 0) throw new Error('El valor debe ser positivo');
+        if(discount_type === 'fixed_price' && discount_value <= 0) throw new Error('El precio debe ser mayor que 0');
+        if(discount_type === 'percentage' && (discount_value <= 0 || discount_value > 100)) throw new Error('El descuento debe estar entre 1 y 100%');
 
         console.log('✅ Validaciones OK, enviando a servidor...');
 
@@ -561,9 +565,12 @@
         if(!response.ok || !data.ok) throw new Error(data.error || 'Error creando oferta');
         
         console.log('🎉 Oferta creada exitosamente');
+        const createdOffer = data.offer || {id:data.id, unit, start_date, end_date, name:name.trim(), discount_type, discount_value, enabled};
+        offers = [createdOffer, ...offers.filter(item => item.id !== createdOffer.id)];
+        renderOffers();
         closeOfferModal();
         loadOffers();
-        notify('✅ Oferta creada. No olvides pulsar "Guardar cambios".');
+        notify('Oferta creada y guardada.');
       }catch(error){
         console.error('❌ Error:', error.message);
         notify('❌ ' + error.message, true);

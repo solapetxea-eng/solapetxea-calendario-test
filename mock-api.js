@@ -87,6 +87,10 @@
       };
     },
 
+    '/api/years': function(req, body) {
+      return { ok: true, years: mockDB.years };
+    },
+
     '/api/admin/config': function(req, body) {
       if (req.method === 'GET') {
         return {
@@ -131,11 +135,14 @@
         return { ok: true, offers: mockDB.offers };
       }
       if (req.method === 'POST' && body) {
+        if (!body.start_date || !body.end_date || body.start_date >= body.end_date) {
+          return { ok: false, error: 'Fechas invalidas.' };
+        }
         const id = `offer-${Date.now()}-${Math.random().toString(16).slice(2)}`;
         const offer = { ...body, id, enabled: body.enabled !== false };
         mockDB.offers.push(offer);
         saveMockData();
-        return { ok: true, id };
+        return { ok: true, id, offer };
       }
       if (req.method === 'PUT' && body) {
         const idx = mockDB.offers.findIndex(o => o.id === body.id);
