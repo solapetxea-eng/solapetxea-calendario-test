@@ -1358,6 +1358,20 @@
     return [...found.values()];
   }
 
+  function offerCoversStay(unit, startIso, endIso){
+    const nights = diffNights(startIso, endIso);
+    if(nights < 1) return false;
+    for(let i=0; i<nights; i++){
+      if(!getApplicableOffer(unit, addDays(startIso, i))) return false;
+    }
+    return true;
+  }
+
+  function canConsultUnit(unit, startIso, endIso){
+    const nights = diffNights(startIso, endIso);
+    return nights >= getMinNights(unit, startIso) || offerCoversStay(unit, startIso, endIso);
+  }
+
   function getNightRate(unit, iso){
     const baseRate = (()=>{
       const season = getSeason(iso);
@@ -1502,17 +1516,14 @@
 
   function renderChoiceButtons(){
     choices.innerHTML = '';
-    const nights = diffNights(selectedStart, selectedEnd);
 
     if(currentModalUnits.includes('oketa')){
-      const min = getMinNights('oketa', selectedStart);
-      if(nights >= min){
+      if(canConsultUnit('oketa', selectedStart, selectedEnd)){
         addChoice(t('consult_oketa'), 'oketa');
       }
     }
     if(currentModalUnits.includes('orixol')){
-      const min = getMinNights('orixol', selectedStart);
-      if(nights >= min){
+      if(canConsultUnit('orixol', selectedStart, selectedEnd)){
         addChoice(t('consult_orixol'), 'orixol');
       }
     }
@@ -1547,10 +1558,10 @@
 
     if(selectedStart && selectedEnd){
       const priceLines = [];
-      if(currentModalUnits.includes('oketa') && diffNights(selectedStart, selectedEnd) >= getMinNights('oketa', selectedStart)){
+      if(currentModalUnits.includes('oketa') && canConsultUnit('oketa', selectedStart, selectedEnd)){
         priceLines.push(getUnitPriceText('oketa', selectedStart, selectedEnd));
       }
-      if(currentModalUnits.includes('orixol') && diffNights(selectedStart, selectedEnd) >= getMinNights('orixol', selectedStart)){
+      if(currentModalUnits.includes('orixol') && canConsultUnit('orixol', selectedStart, selectedEnd)){
         priceLines.push(getUnitPriceText('orixol', selectedStart, selectedEnd));
       }
 
