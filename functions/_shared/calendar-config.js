@@ -1,30 +1,43 @@
-export const DEFAULT_CALENDAR_CONFIG = {
-  version: 1,
-  singleOccupancyDiscount: 10,
-  units: {
-    oketa: { name: 'Oketa', rates: { low: 95, high: 120 } },
-    orixol: { name: 'Orixol', rates: { low: 80, high: 90 } },
-  },
-  seasons: [
-    { id: 'summer-2026', name: 'Verano 2026', type: 'high', start: '2026-06-15', end: '2026-09-15' },
-    { id: 'october-2026', name: 'Puente de octubre 2026', type: 'high', start: '2026-10-09', end: '2026-10-12' },
-    { id: 'december-2026', name: 'Puente de diciembre 2026', type: 'high', start: '2026-12-04', end: '2026-12-08' },
-    { id: 'christmas-2026', name: 'Navidad 2026', type: 'high', start: '2026-12-24', end: '2026-12-31' },
-    { id: 'summer-2027', name: 'Verano 2027', type: 'high', start: '2027-06-15', end: '2027-09-15' },
-    { id: 'october-2027', name: 'Puente de octubre 2027', type: 'high', start: '2027-10-09', end: '2027-10-12' },
-    { id: 'december-2027', name: 'Puente de diciembre 2027', type: 'high', start: '2027-12-04', end: '2027-12-08' },
-    { id: 'christmas-2027', name: 'Navidad 2027', type: 'high', start: '2027-12-24', end: '2027-12-31' },
-  ],
-  minimumStays: [
-    { id: 'oketa-shoulder-2026', unit: 'oketa', start: '2026-05-01', end: '2026-09-30', nights: 2 },
-    { id: 'oketa-summer-2026', unit: 'oketa', start: '2026-07-01', end: '2026-08-31', nights: 5 },
-    { id: 'orixol-summer-2026', unit: 'orixol', start: '2026-07-01', end: '2026-08-31', nights: 2 },
-    { id: 'oketa-shoulder-2027', unit: 'oketa', start: '2027-05-01', end: '2027-09-30', nights: 2 },
-    { id: 'oketa-summer-2027', unit: 'oketa', start: '2027-07-01', end: '2027-08-31', nights: 5 },
-    { id: 'orixol-summer-2027', unit: 'orixol', start: '2027-07-01', end: '2027-08-31', nights: 2 },
-  ],
-  manualBlocks: [],
-};
+export function getRollingYears(date = new Date()) {
+  const year = Number(new Intl.DateTimeFormat('en', {
+    timeZone: 'Europe/Madrid',
+    year: 'numeric',
+  }).format(date));
+  return [year, year + 1];
+}
+
+function defaultSeasonsForYear(year) {
+  return [
+    { id: `summer-${year}`, name: `Verano ${year}`, type: 'high', start: `${year}-06-15`, end: `${year}-09-15` },
+    { id: `october-${year}`, name: `Puente de octubre ${year}`, type: 'high', start: `${year}-10-09`, end: `${year}-10-12` },
+    { id: `december-${year}`, name: `Puente de diciembre ${year}`, type: 'high', start: `${year}-12-04`, end: `${year}-12-08` },
+    { id: `christmas-${year}`, name: `Navidad ${year}`, type: 'high', start: `${year}-12-24`, end: `${year}-12-31` },
+  ];
+}
+
+function defaultMinimumStaysForYear(year) {
+  return [
+    { id: `oketa-shoulder-${year}`, unit: 'oketa', start: `${year}-05-01`, end: `${year}-09-30`, nights: 2 },
+    { id: `oketa-summer-${year}`, unit: 'oketa', start: `${year}-07-01`, end: `${year}-08-31`, nights: 5 },
+    { id: `orixol-summer-${year}`, unit: 'orixol', start: `${year}-07-01`, end: `${year}-08-31`, nights: 2 },
+  ];
+}
+
+function buildDefaultCalendarConfig(years = getRollingYears()) {
+  return {
+    version: 1,
+    singleOccupancyDiscount: 10,
+    units: {
+      oketa: { name: 'Oketa', rates: { low: 95, high: 120 } },
+      orixol: { name: 'Orixol', rates: { low: 80, high: 90 } },
+    },
+    seasons: years.flatMap(defaultSeasonsForYear),
+    minimumStays: years.flatMap(defaultMinimumStaysForYear),
+    manualBlocks: [],
+  };
+}
+
+export const DEFAULT_CALENDAR_CONFIG = buildDefaultCalendarConfig();
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const UNIT_IDS = ['oketa', 'orixol'];
@@ -40,6 +53,10 @@ function cleanText(value, fallback = '', maxLength = 120) {
 
 function validDate(value) {
   return typeof value === 'string' && DATE_RE.test(value) ? value : '';
+}
+
+function yearFromDate(value) {
+  return validDate(value) ? Number(value.slice(0, 4)) : null;
 }
 
 function cleanRange(item) {
@@ -96,19 +113,58 @@ export function sanitizeCalendarConfig(input = {}) {
     }];
   }) : config.manualBlocks;
 
-  return config;
+  return ensureCalendarYears(config);
+}
+
+export function ensureCalendarYears(config, years = getRollingYears()) {
+  const next = structuredClone(config);
+  const seasonIds = new Set((next.seasons || []).map(item => item.id));
+  const minimumIds = new Set((next.minimumStays || []).map(item => item.id));
+
+  for (const year of years) {
+    for (const season of defaultSeasonsForYear(year)) {
+      if (!seasonIds.has(season.id)) {
+        next.seasons.push(season);
+        seasonIds.add(season.id);
+      }
+    }
+    for (const minimumStay of defaultMinimumStaysForYear(year)) {
+      if (!minimumIds.has(minimumStay.id)) {
+        next.minimumStays.push(minimumStay);
+        minimumIds.add(minimumStay.id);
+      }
+    }
+  }
+
+  next.seasons = (next.seasons || []).filter(item => {
+    const startYear = yearFromDate(item.start);
+    const endYear = yearFromDate(item.end);
+    return years.includes(startYear) || years.includes(endYear);
+  });
+  next.minimumStays = (next.minimumStays || []).filter(item => {
+    const startYear = yearFromDate(item.start);
+    const endYear = yearFromDate(item.end);
+    return years.includes(startYear) || years.includes(endYear);
+  });
+  next.manualBlocks = (next.manualBlocks || []).filter(item => {
+    const startYear = yearFromDate(item.start);
+    const endYear = yearFromDate(item.end);
+    return years.includes(startYear) || years.includes(endYear);
+  });
+
+  return next;
 }
 
 export async function readCalendarConfig(env) {
-  if (!env?.DB) return structuredClone(DEFAULT_CALENDAR_CONFIG);
+  if (!env?.DB) return ensureCalendarYears(DEFAULT_CALENDAR_CONFIG);
 
   try {
     const row = await env.DB.prepare('SELECT value FROM app_config WHERE key = ?')
       .bind('calendar')
       .first();
-    return row?.value ? sanitizeCalendarConfig(JSON.parse(row.value)) : structuredClone(DEFAULT_CALENDAR_CONFIG);
+    return row?.value ? sanitizeCalendarConfig(JSON.parse(row.value)) : ensureCalendarYears(DEFAULT_CALENDAR_CONFIG);
   } catch {
-    return structuredClone(DEFAULT_CALENDAR_CONFIG);
+    return ensureCalendarYears(DEFAULT_CALENDAR_CONFIG);
   }
 }
 
@@ -138,16 +194,7 @@ export function addManualBlocks(occupancy, config, year) {
 }
 
 export async function getActiveYears(env) {
-  if (!env?.DB) return [2026, 2027];
-
-  try {
-    const rows = await env.DB.prepare(
-      'SELECT year FROM active_years WHERE enabled = 1 ORDER BY year ASC'
-    ).all();
-    return rows.results?.map(r => r.year) || [2026, 2027];
-  } catch {
-    return [2026, 2027];
-  }
+  return getRollingYears();
 }
 
 export async function readOffers(env) {

@@ -2,10 +2,15 @@
 // Este archivo intercepta fetch para simular las APIs de Cloudflare Functions
 
 (function initMockAPI() {
+  const rollingYears = () => {
+    const year = new Date().getFullYear();
+    return [year, year + 1];
+  };
+
   // Datos mockeados en memoria
   const mockDB = {
     calendar: null,
-    years: [2026, 2027],
+    years: rollingYears(),
     offers: []
   };
 
@@ -27,7 +32,7 @@
   }
 
   // Config por defecto
-  function getDefaultConfig(years = [2026, 2027]) {
+  function getDefaultConfig(years = rollingYears()) {
     const config = {
       version: 1,
       singleOccupancyDiscount: 10,
@@ -88,7 +93,7 @@
     },
 
     '/api/years': function(req, body) {
-      return { ok: true, years: mockDB.years };
+      return { ok: true, years: rollingYears() };
     },
 
     '/api/admin/config': function(req, body) {
@@ -111,7 +116,7 @@
 
     '/api/admin/years': function(req, body) {
       if (req.method === 'GET') {
-        return { ok: true, years: mockDB.years };
+        return { ok: true, years: rollingYears() };
       }
       if (req.method === 'POST' && body) {
         const year = Number(body.year);

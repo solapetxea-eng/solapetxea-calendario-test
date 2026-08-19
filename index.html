@@ -750,8 +750,9 @@
   const monthNames = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
   const weekdayNames = ['dom','lun','mar','mié','jue','vie','sáb'];
   const dows = ['dom','lun','mar','mié','jue','vie','sáb'];
-  let availableYears = [2026, 2027];
   const currentYear = new Date().getFullYear();
+  const rollingYears = () => [new Date().getFullYear(), new Date().getFullYear() + 1];
+  let availableYears = rollingYears();
   let year = availableYears.includes(currentYear) ? currentYear : availableYears[0];
   const phone = '34617414914';
 
@@ -799,11 +800,11 @@
       const response = await fetch('/api/years', { cache: 'no-store' });
       const data = await response.json();
       if (response.ok && data.ok) {
-        availableYears = data.years || [2026, 2027];
+        availableYears = data.years || rollingYears();
       }
     } catch (error) {
       console.warn('Error cargando años disponibles, usando predeterminados:', error);
-      availableYears = [2026, 2027];
+      availableYears = rollingYears();
     }
     renderYearButtons();
     if (!availableYears.includes(year)) {

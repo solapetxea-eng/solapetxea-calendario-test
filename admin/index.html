@@ -94,22 +94,14 @@
     </section>
 
     <section class="card">
-      <div class="cardHead">        <div><h2>Años disponibles</h2><p class=\"hint\">Gestiona qué años están activos en el calendario.</p></div>
-        <button class=\"btn small\" id=\"addYear\" type=\"button\">+ Añadir año</button>
+      <div class="cardHead">
+        <div><h2>Años visibles</h2><p class="hint">El calendario muestra automáticamente el año actual y el siguiente.</p></div>
       </div>
-      <div id=\"yearsContainer\" style=\"display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px\"></div>
-      <div class=\"field\" id=\"yearInputContainer\" style=\"display:none;max-width:200px\">
-        <label for=\"newYear\">Nuevo año</label>
-        <div style=\"display:flex;gap:8px\">
-          <input id=\"newYear\" type=\"number\" min=\"2000\" max=\"2100\" placeholder=\"2028\">
-          <button class=\"btn\" id=\"confirmYear\" type=\"button\" style=\"flex:0\">✓</button>
-          <button class=\"btn\" id=\"cancelYear\" type=\"button\" style=\"flex:0\">✕</button>
-        </div>
-      </div>
+      <div id="yearsContainer" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px"></div>
     </section>
 
-    <section class=\"card\">
-      <div class=\"cardHead\">        <div><h2>Tarifas</h2><p class="hint">Precio por noche para cada alojamiento y temporada.</p></div>
+    <section class="card">
+      <div class="cardHead">        <div><h2>Tarifas</h2><p class="hint">Precio por noche para cada alojamiento y temporada.</p></div>
       </div>
       <div class="rates">
         <article class="unit">
@@ -226,13 +218,17 @@
 
   <script>
     const STORAGE_KEY = 'solapetxea_calendar_config';
+    const rollingYears = () => {
+      const year = new Date().getFullYear();
+      return [year, year + 1];
+    };
     const DEFAULT_CONFIG = {
       version:1,
       singleOccupancyDiscount:10,
       units:{oketa:{name:'Oketa',rates:{low:95,high:120}},orixol:{name:'Orixol',rates:{low:80,high:90}}},
       seasons:[], minimumStays:[], manualBlocks:[]
     };
-    for(const year of [2026, 2027]){
+    for(const year of rollingYears()){
       DEFAULT_CONFIG.seasons.push(
         {id:`summer-${year}`,name:`Verano ${year}`,type:'high',start:`${year}-06-15`,end:`${year}-09-15`},
         {id:`october-${year}`,name:`Puente de octubre ${year}`,type:'high',start:`${year}-10-09`,end:`${year}-10-12`},
@@ -367,74 +363,29 @@
       }
     }
 
-    function addSeason(){config.seasons.push({id:uid('season'),name:'Nueva temporada',type:'high',start:'2026-01-01',end:'2026-01-01'});render()}
-    function addMinimum(){config.minimumStays.push({id:uid('minimum'),unit:'oketa',start:'2026-01-01',end:'2026-01-01',nights:1});render()}
-    function addBlock(){config.manualBlocks.push({id:uid('block'),unit:'oketa',start:'2026-01-01',end:'2026-01-02',note:''});render()}
+    function defaultStartDate(){return `${rollingYears()[0]}-01-01`}
+    function defaultEndDate(){return `${rollingYears()[0]}-01-02`}
+    function addSeason(){config.seasons.push({id:uid('season'),name:'Nueva temporada',type:'high',start:defaultStartDate(),end:defaultStartDate()});render()}
+    function addMinimum(){config.minimumStays.push({id:uid('minimum'),unit:'oketa',start:defaultStartDate(),end:defaultStartDate(),nights:1});render()}
+    function addBlock(){config.manualBlocks.push({id:uid('block'),unit:'oketa',start:defaultStartDate(),end:defaultEndDate(),note:''});render()}
 
-    let years = [2026, 2027];
+    let years = rollingYears();
 
     function renderYears(){
-      $('yearsContainer').innerHTML = years.map(year=>`<div class=\"yearChip\">${year}<button class=\"deleteYear\" type=\"button\" data-year=\"${year}\">×</button></div>`).join('');
+      $('yearsContainer').innerHTML = years.map(year=>`<div class="yearChip">${year}</div>`).join('');
     }
 
     async function loadYears(){
       try{
-        const response = await fetch('/api/admin/years', {headers:headers(), cache:'no-store'});
+        const response = await fetch('/api/years', {headers:headers(), cache:'no-store'});
         const data = await response.json();
         if(!response.ok || !data.ok) throw new Error(data.error || 'No se pudo cargar años');
-        years = data.years || [2026, 2027];
+        years = data.years || rollingYears();
         renderYears();
       }catch(error){
         console.warn('Error cargando años:', error.message);
-        years = [2026, 2027];
+        years = rollingYears();
         renderYears();
-      }
-    }
-
-    async function addNewYear(){
-      const year = Number($('newYear').value);
-      if(!Number.isInteger(year) || year < 2000 || year > 2100){
-        notify('Año inválido. Debe estar entre 2000 y 2100.', true);
-        return;
-      }
-      try{
-        const response = await fetch('/api/admin/years', {
-          method:'POST',
-          headers:headers(),
-          body:JSON.stringify({year})
-        });
-        const data = await response.json();
-        if(!response.ok || !data.ok) throw new Error(data.error || 'No se pudo agregar año');
-        years = data.years || [];
-        renderYears();
-        $('newYear').value = '';
-        $('yearInputContainer').style.display = 'none';
-        notify(`Año ${year} agregado exitosamente.`);
-      }catch(error){
-        notify(error.message, true);
-      }
-    }
-
-    async function deleteYear(year){
-      const currentYear = new Date().getFullYear();
-      if(year <= currentYear){
-        notify('No se pueden eliminar años pasados o del año actual.', true);
-        return;
-      }
-      if(!confirm(`¿Estás seguro de que deseas eliminar el año ${year}? Esta acción no se puede deshacer.`)) return;
-      try{
-        const response = await fetch('/api/admin/years', {
-          method:'DELETE',
-          headers:headers(),
-          body:JSON.stringify({year})
-        });
-        const data = await response.json();
-        if(!response.ok || !data.ok) throw new Error(data.error || 'No se pudo eliminar año');
-        years = data.years || [];
-        renderYears();
-        notify(`Año ${year} eliminado.`);
-      }catch(error){
-        notify(error.message, true);
       }
     }
 
@@ -603,12 +554,6 @@
       render();
     });
     document.addEventListener('click', event=>{
-      const deleteBtn = event.target.closest('.deleteYear');
-      if(!deleteBtn) return;
-      const year = Number(deleteBtn.dataset.year);
-      deleteYear(year);
-    });
-    document.addEventListener('click', event=>{
       const deleteBtn = event.target.closest('.remove-offer');
       if(!deleteBtn) return;
       const row = deleteBtn.closest('tr');
@@ -633,10 +578,6 @@
     $('addMinimum').onclick = addMinimum;
     $('addBlock').onclick = addBlock;
     $('addOffer').onclick = addNewOffer;
-    $('addYear').onclick = () => $('yearInputContainer').style.display = 'block';
-    $('confirmYear').onclick = addNewYear;
-    $('cancelYear').onclick = () => $('yearInputContainer').style.display = 'none';
-    $('newYear').onkeypress = event => event.key === 'Enter' && addNewYear();
     $('password').value = sessionStorage.getItem('solapetxea_admin_password') || '';
     setControlsDisabled(true);
     load();

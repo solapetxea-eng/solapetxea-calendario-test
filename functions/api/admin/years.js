@@ -1,3 +1,5 @@
+import { getActiveYears } from '../../_shared/calendar-config.js';
+
 function isAuthorized(request, env) {
   const accessEmail = request.headers.get('cf-access-authenticated-user-email');
   if (accessEmail) return true;
@@ -17,19 +19,7 @@ export async function onRequestGet(context) {
     return json({ ok: false, error: 'Acceso no autorizado.' }, 401);
   }
 
-  if (!context.env?.DB) {
-    return json({ ok: true, years: [2026, 2027] });
-  }
-
-  try {
-    const rows = await context.env.DB.prepare(
-      'SELECT year FROM active_years WHERE enabled = 1 ORDER BY year ASC'
-    ).all();
-    const years = rows.results?.map(r => r.year) || [2026, 2027];
-    return json({ ok: true, years });
-  } catch {
-    return json({ ok: true, years: [2026, 2027] });
-  }
+  return json({ ok: true, years: await getActiveYears(context.env) });
 }
 
 export async function onRequestPost(context) {
@@ -54,11 +44,7 @@ export async function onRequestPost(context) {
       'INSERT OR REPLACE INTO active_years (year, enabled) VALUES (?, 1)'
     ).bind(year).run();
 
-    // Retornar lista actualizada
-    const rows = await context.env.DB.prepare(
-      'SELECT year FROM active_years WHERE enabled = 1 ORDER BY year ASC'
-    ).all();
-    const years = rows.results?.map(r => r.year) || [2026, 2027];
+    const years = await getActiveYears(context.env);
     
     return json({ ok: true, years });
   } catch (error) {
@@ -99,11 +85,7 @@ export async function onRequestDelete(context) {
       'UPDATE active_years SET enabled = 0 WHERE year = ?'
     ).bind(year).run();
 
-    // Retornar lista actualizada
-    const rows = await context.env.DB.prepare(
-      'SELECT year FROM active_years WHERE enabled = 1 ORDER BY year ASC'
-    ).all();
-    const years = rows.results?.map(r => r.year) || [2026, 2027];
+    const years = await getActiveYears(context.env);
     
     return json({ ok: true, years });
   } catch (error) {
