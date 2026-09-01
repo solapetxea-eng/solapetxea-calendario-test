@@ -34,11 +34,11 @@
   // Config por defecto
   function getDefaultConfig(years = rollingYears()) {
     const config = {
-      version: 1,
+      version: 2,
       singleOccupancyDiscount: 10,
       units: {
-        oketa: { name: 'Oketa', rates: { low: 95, high: 120 } },
-        orixol: { name: 'Orixol', rates: { low: 80, high: 90 } }
+        oketa: { name: 'Oketa', rates: { low: 95, high: 120 }, ratesByYear: {} },
+        orixol: { name: 'Orixol', rates: { low: 80, high: 90 }, ratesByYear: {} }
       },
       seasons: [],
       minimumStays: [],
@@ -46,6 +46,8 @@
     };
 
     for (const year of years) {
+      config.units.oketa.ratesByYear[year] = { low: 95, medium: 95, high: 120 };
+      config.units.orixol.ratesByYear[year] = { low: 80, medium: 80, high: 90 };
       config.seasons.push(
         { id: `summer-${year}`, name: `Verano ${year}`, type: 'high', start: `${year}-06-15`, end: `${year}-09-15` },
         { id: `october-${year}`, name: `Puente de octubre ${year}`, type: 'high', start: `${year}-10-09`, end: `${year}-10-12` },
@@ -93,7 +95,7 @@
     },
 
     '/api/years': function(req, body) {
-      return { ok: true, years: rollingYears() };
+      return { ok: true, years: mockDB.years };
     },
 
     '/api/admin/config': function(req, body) {
@@ -116,7 +118,7 @@
 
     '/api/admin/years': function(req, body) {
       if (req.method === 'GET') {
-        return { ok: true, years: rollingYears() };
+        return { ok: true, years: mockDB.years };
       }
       if (req.method === 'POST' && body) {
         const year = Number(body.year);

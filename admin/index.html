@@ -40,7 +40,10 @@
     .rates{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
     .unit{border:1px solid var(--line);background:#fbfaf7;border-radius:13px;padding:14px}
     .unit h3{margin:0 0 12px;font-size:17px}
-    .rateGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    .rateGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+    .rateYearTabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+    .rateYearBtn{border:1px solid var(--line);border-radius:999px;background:#fff;color:var(--text);padding:7px 14px;font-weight:750;cursor:pointer}
+    .rateYearBtn.active{background:var(--brand);border-color:var(--brand);color:#fff}
     .discount{margin-top:14px;max-width:300px}
     .tableWrap{overflow-x:auto}
     table{width:100%;border-collapse:collapse;min-width:720px}
@@ -66,7 +69,7 @@
     .form-actions{display:flex;gap:10px;margin-top:24px}
     .form-actions button{flex:1;padding:12px 16px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--text);font-weight:700;cursor:pointer;font-size:14px}
     .form-actions .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
-    @media(max-width:720px){.shell{width:min(100% - 18px,1180px);margin-top:16px}header{display:block}.headerActions{justify-content:flex-start;margin-top:14px}.access{grid-template-columns:1fr}.rates{grid-template-columns:1fr}.card{padding:14px}.rateGrid{grid-template-columns:1fr 1fr}.btn{flex:1}.modal-content{max-width:90vw;padding:20px}}
+    @media(max-width:720px){.shell{width:min(100% - 18px,1180px);margin-top:16px}header{display:block}.headerActions{justify-content:flex-start;margin-top:14px}.access{grid-template-columns:1fr}.rates{grid-template-columns:1fr}.card{padding:14px}.rateGrid{grid-template-columns:1fr}.btn{flex:1}.modal-content{max-width:90vw;padding:20px}}
   </style>
 </head>
 <body>
@@ -95,7 +98,8 @@
 
     <section class="card">
       <div class="cardHead">
-        <div><h2>Años visibles</h2><p class="hint">El calendario muestra automáticamente el año actual y el siguiente.</p></div>
+        <div><h2>Años visibles</h2><p class="hint">Estos años aparecen en el calendario y disponen de tarifas propias.</p></div>
+        <button class="btn small" id="addYear" type="button">+ Añadir año</button>
       </div>
       <div id="yearsContainer" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px"></div>
     </section>
@@ -103,11 +107,13 @@
     <section class="card">
       <div class="cardHead">        <div><h2>Tarifas</h2><p class="hint">Precio por noche para cada alojamiento y temporada.</p></div>
       </div>
+      <div class="rateYearTabs" id="rateYearTabs" aria-label="Seleccionar año de tarifas"></div>
       <div class="rates">
         <article class="unit">
           <h3>Oketa</h3>
           <div class="rateGrid">
             <div class="field"><label for="oketaLow">Temporada baja (€)</label><input id="oketaLow" type="number" min="0" step="1"></div>
+            <div class="field"><label for="oketaMedium">Temporada media (€)</label><input id="oketaMedium" type="number" min="0" step="1"></div>
             <div class="field"><label for="oketaHigh">Temporada alta (€)</label><input id="oketaHigh" type="number" min="0" step="1"></div>
           </div>
         </article>
@@ -115,6 +121,7 @@
           <h3>Orixol</h3>
           <div class="rateGrid">
             <div class="field"><label for="orixolLow">Temporada baja (€)</label><input id="orixolLow" type="number" min="0" step="1"></div>
+            <div class="field"><label for="orixolMedium">Temporada media (€)</label><input id="orixolMedium" type="number" min="0" step="1"></div>
             <div class="field"><label for="orixolHigh">Temporada alta (€)</label><input id="orixolHigh" type="number" min="0" step="1"></div>
           </div>
         </article>
@@ -124,7 +131,7 @@
 
     <section class="card">
       <div class="cardHead">
-        <div><h2>Temporadas</h2><p class="hint">Define qué fechas utilizan la tarifa alta o baja.</p></div>
+        <div><h2>Temporadas</h2><p class="hint">Define qué fechas utilizan la tarifa baja, media o alta.</p></div>
         <button class="btn small" id="addSeason" type="button">+ Añadir</button>
       </div>
       <div class="tableWrap"><table><thead><tr><th>Nombre</th><th>Tipo</th><th>Desde</th><th>Hasta</th><th></th></tr></thead><tbody id="seasonRows"></tbody></table></div>
@@ -223,12 +230,17 @@
       return [year, year + 1];
     };
     const DEFAULT_CONFIG = {
-      version:1,
+      version:2,
       singleOccupancyDiscount:10,
-      units:{oketa:{name:'Oketa',rates:{low:95,high:120}},orixol:{name:'Orixol',rates:{low:80,high:90}}},
+      units:{
+        oketa:{name:'Oketa',rates:{low:95,high:120},ratesByYear:{}},
+        orixol:{name:'Orixol',rates:{low:80,high:90},ratesByYear:{}}
+      },
       seasons:[], minimumStays:[], manualBlocks:[]
     };
     for(const year of rollingYears()){
+      DEFAULT_CONFIG.units.oketa.ratesByYear[year] = {low:95,medium:95,high:120};
+      DEFAULT_CONFIG.units.orixol.ratesByYear[year] = {low:80,medium:80,high:90};
       DEFAULT_CONFIG.seasons.push(
         {id:`summer-${year}`,name:`Verano ${year}`,type:'high',start:`${year}-06-15`,end:`${year}-09-15`},
         {id:`october-${year}`,name:`Puente de octubre ${year}`,type:'high',start:`${year}-10-09`,end:`${year}-10-12`},
@@ -247,12 +259,16 @@
     const esc = value => String(value ?? '').replace(/[&<>"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[char]));
     const uid = prefix => `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     const isLocal = ['localhost','127.0.0.1'].includes(location.hostname);
+    let controlsLocked = true;
 
     function setControlsDisabled(disabled) {
+      controlsLocked = disabled;
       const controls = [
         ...document.querySelectorAll('input:not(#password)'),
         ...document.querySelectorAll('select'),
-        $('addSeason'), $('addMinimum'), $('addBlock'),
+        ...document.querySelectorAll('.rateYearBtn'),
+        ...document.querySelectorAll('.remove-year'),
+        $('addYear'), $('addSeason'), $('addMinimum'), $('addBlock'),
         $('saveTop'), $('saveBottom')
       ];
       controls.forEach(ctrl => ctrl.disabled = disabled);
@@ -308,14 +324,74 @@
       return `<option value="oketa" ${selected==='oketa'?'selected':''}>Oketa</option><option value="orixol" ${selected==='orixol'?'selected':''}>Orixol</option>`;
     }
 
+    let years = rollingYears();
+    let selectedRateYear = years[0];
+
+    function ensureRatesForYears(){
+      for(const unit of ['oketa','orixol']){
+        const defaults = unit === 'oketa' ? {low:95,high:120} : {low:80,high:90};
+        config.units ||= {};
+        config.units[unit] ||= {name:unit === 'oketa' ? 'Oketa' : 'Orixol',rates:{...defaults}};
+        const legacy = config.units[unit].rates || defaults;
+        config.units[unit].ratesByYear ||= {};
+        for(const rateYear of years){
+          const existing = config.units[unit].ratesByYear[rateYear] || {};
+          const low = Number.isFinite(Number(existing.low)) ? Number(existing.low) : Number(legacy.low);
+          config.units[unit].ratesByYear[rateYear] = {
+            low,
+            medium:Number.isFinite(Number(existing.medium)) ? Number(existing.medium) : low,
+            high:Number.isFinite(Number(existing.high)) ? Number(existing.high) : Number(legacy.high)
+          };
+        }
+      }
+    }
+
+    function renderRateInputs(){
+      ensureRatesForYears();
+      if(!years.includes(selectedRateYear)) selectedRateYear = years[0];
+      const oketa = config.units.oketa.ratesByYear[selectedRateYear];
+      const orixol = config.units.orixol.ratesByYear[selectedRateYear];
+      $('oketaLow').value = oketa.low;
+      $('oketaMedium').value = oketa.medium;
+      $('oketaHigh').value = oketa.high;
+      $('orixolLow').value = orixol.low;
+      $('orixolMedium').value = orixol.medium;
+      $('orixolHigh').value = orixol.high;
+    }
+
+    function syncRateInputs(){
+      if(!selectedRateYear) return;
+      const values = {
+        oketa:{low:Number($('oketaLow').value),medium:Number($('oketaMedium').value),high:Number($('oketaHigh').value)},
+        orixol:{low:Number($('orixolLow').value),medium:Number($('orixolMedium').value),high:Number($('orixolHigh').value)}
+      };
+      for(const [unit, rates] of Object.entries(values)){
+        if(Object.values(rates).some(rate=>!Number.isFinite(rate) || rate < 0)){
+          throw new Error(`Revisa las tarifas de ${unit === 'oketa' ? 'Oketa' : 'Orixol'} para ${selectedRateYear}.`);
+        }
+        config.units[unit].ratesByYear[selectedRateYear] = rates;
+      }
+    }
+
+    function renderRateYearTabs(){
+      if(!years.includes(selectedRateYear)) selectedRateYear = years[0];
+      $('rateYearTabs').innerHTML = years.map(rateYear=>`<button type="button" class="rateYearBtn ${rateYear===selectedRateYear?'active':''}" data-rate-year="${rateYear}" aria-pressed="${rateYear===selectedRateYear}" ${controlsLocked?'disabled':''}>${rateYear}</button>`).join('');
+    }
+
+    function selectRateYear(rateYear){
+      if(rateYear === selectedRateYear) return;
+      syncRateInputs();
+      selectedRateYear = rateYear;
+      renderRateYearTabs();
+      renderRateInputs();
+    }
+
     function render(){
-      $('oketaLow').value = config.units?.oketa?.rates?.low ?? 95;
-      $('oketaHigh').value = config.units?.oketa?.rates?.high ?? 120;
-      $('orixolLow').value = config.units?.orixol?.rates?.low ?? 80;
-      $('orixolHigh').value = config.units?.orixol?.rates?.high ?? 90;
+      renderRateYearTabs();
+      renderRateInputs();
       $('discount').value = config.singleOccupancyDiscount ?? 10;
 
-      $('seasonRows').innerHTML = (config.seasons || []).map(item => `<tr data-id="${esc(item.id)}"><td><input data-field="name" value="${esc(item.name)}"></td><td><select data-field="type"><option value="high" ${item.type==='high'?'selected':''}>Alta</option><option value="low" ${item.type==='low'?'selected':''}>Baja</option></select></td><td><input data-field="start" type="date" value="${esc(item.start)}"></td><td><input data-field="end" type="date" value="${esc(item.end)}"></td><td class="actions"><button class="btn danger remove" type="button">Eliminar</button></td></tr>`).join('') || '<tr><td class="empty" colspan="5">No hay temporadas configuradas.</td></tr>';
+      $('seasonRows').innerHTML = (config.seasons || []).map(item => `<tr data-id="${esc(item.id)}"><td><input data-field="name" value="${esc(item.name)}"></td><td><select data-field="type"><option value="low" ${item.type==='low'?'selected':''}>Baja</option><option value="medium" ${item.type==='medium'?'selected':''}>Media</option><option value="high" ${item.type==='high'?'selected':''}>Alta</option></select></td><td><input data-field="start" type="date" value="${esc(item.start)}"></td><td><input data-field="end" type="date" value="${esc(item.end)}"></td><td class="actions"><button class="btn danger remove" type="button">Eliminar</button></td></tr>`).join('') || '<tr><td class="empty" colspan="5">No hay temporadas configuradas.</td></tr>';
       $('minimumRows').innerHTML = (config.minimumStays || []).map(item => `<tr data-id="${esc(item.id)}"><td><select data-field="unit">${unitOptions(item.unit)}</select></td><td><input data-field="start" type="date" value="${esc(item.start)}"></td><td><input data-field="end" type="date" value="${esc(item.end)}"></td><td><input data-field="nights" type="number" min="1" max="60" value="${Number(item.nights)||1}"></td><td class="actions"><button class="btn danger remove" type="button">Eliminar</button></td></tr>`).join('') || '<tr><td class="empty" colspan="5">No hay reglas de estancia mínima.</td></tr>';
       $('blockRows').innerHTML = (config.manualBlocks || []).map(item => `<tr data-id="${esc(item.id)}"><td><select data-field="unit">${unitOptions(item.unit)}</select></td><td><input data-field="start" type="date" value="${esc(item.start)}"></td><td><input data-field="end" type="date" value="${esc(item.end)}"></td><td><input data-field="note" value="${esc(item.note)}" placeholder="Reserva directa, mantenimiento…"></td><td class="actions"><button class="btn danger remove" type="button">Eliminar</button></td></tr>`).join('') || '<tr><td class="empty" colspan="5">No hay bloqueos manuales.</td></tr>';
     }
@@ -327,20 +403,23 @@
       ]));
     }
 
+    function syncConfigRows(){
+      config.seasons = readRows('seasonRows',['name','type','start','end']);
+      config.minimumStays = readRows('minimumRows',['unit','start','end','nights']).map(item=>({...item,nights:Number(item.nights)}));
+      config.manualBlocks = readRows('blockRows',['unit','start','end','note']);
+    }
+
     function collect(){
-      const seasons = readRows('seasonRows',['name','type','start','end']);
-      const minimumStays = readRows('minimumRows',['unit','start','end','nights']).map(item=>({...item,nights:Number(item.nights)}));
-      const manualBlocks = readRows('blockRows',['unit','start','end','note']);
+      syncRateInputs();
+      syncConfigRows();
+      const { seasons, minimumStays, manualBlocks } = config;
       for(const item of [...seasons,...minimumStays,...manualBlocks]){
         if(!item.start || !item.end || item.start > item.end) throw new Error('Revisa las fechas: el inicio debe ser anterior al final.');
       }
       return {
-        version:1,
+        version:2,
         singleOccupancyDiscount:Number($('discount').value),
-        units:{
-          oketa:{name:'Oketa',rates:{low:Number($('oketaLow').value),high:Number($('oketaHigh').value)}},
-          orixol:{name:'Orixol',rates:{low:Number($('orixolLow').value),high:Number($('orixolHigh').value)}}
-        }, seasons, minimumStays, manualBlocks
+        units:structuredClone(config.units), seasons, minimumStays, manualBlocks
       };
     }
 
@@ -363,16 +442,17 @@
       }
     }
 
-    function defaultStartDate(){return `${rollingYears()[0]}-01-01`}
-    function defaultEndDate(){return `${rollingYears()[0]}-01-02`}
-    function addSeason(){config.seasons.push({id:uid('season'),name:'Nueva temporada',type:'high',start:defaultStartDate(),end:defaultStartDate()});render()}
-    function addMinimum(){config.minimumStays.push({id:uid('minimum'),unit:'oketa',start:defaultStartDate(),end:defaultStartDate(),nights:1});render()}
-    function addBlock(){config.manualBlocks.push({id:uid('block'),unit:'oketa',start:defaultStartDate(),end:defaultEndDate(),note:''});render()}
-
-    let years = rollingYears();
+    function defaultStartDate(){return `${selectedRateYear || rollingYears()[0]}-01-01`}
+    function defaultEndDate(){return `${selectedRateYear || rollingYears()[0]}-01-02`}
+    function addSeason(){syncRateInputs();syncConfigRows();config.seasons.push({id:uid('season'),name:'Nueva temporada',type:'medium',start:defaultStartDate(),end:defaultStartDate()});render()}
+    function addMinimum(){syncRateInputs();syncConfigRows();config.minimumStays.push({id:uid('minimum'),unit:'oketa',start:defaultStartDate(),end:defaultStartDate(),nights:1});render()}
+    function addBlock(){syncRateInputs();syncConfigRows();config.manualBlocks.push({id:uid('block'),unit:'oketa',start:defaultStartDate(),end:defaultEndDate(),note:''});render()}
 
     function renderYears(){
-      $('yearsContainer').innerHTML = years.map(year=>`<div class="yearChip">${year}</div>`).join('');
+      const currentYear = new Date().getFullYear();
+      $('yearsContainer').innerHTML = years.map(year=>`<div class="yearChip">${year}${year>currentYear?`<button type="button" class="remove-year" data-year="${year}" aria-label="Ocultar ${year}" ${controlsLocked?'disabled':''}>×</button>`:''}</div>`).join('');
+      renderRateYearTabs();
+      renderRateInputs();
     }
 
     async function loadYears(){
@@ -380,6 +460,7 @@
         const response = await fetch('/api/years', {headers:headers(), cache:'no-store'});
         const data = await response.json();
         if(!response.ok || !data.ok) throw new Error(data.error || 'No se pudo cargar años');
+        if(!controlsLocked) syncRateInputs();
         years = data.years || rollingYears();
         renderYears();
       }catch(error){
@@ -387,6 +468,36 @@
         years = rollingYears();
         renderYears();
       }
+    }
+
+    async function addVisibleYear(){
+      syncRateInputs();
+      const suggested = Math.max(...years) + 1;
+      const year = Number(prompt('Año que quieres mostrar:', String(suggested)));
+      if(!Number.isInteger(year)) return;
+      try{
+        const response = await fetch('/api/admin/years', {method:'POST',headers:headers(),body:JSON.stringify({year})});
+        const data = await response.json();
+        if(!response.ok || !data.ok) throw new Error(data.error || 'No se pudo añadir el año');
+        years = data.years;
+        selectedRateYear = year;
+        ensureRatesForYears();
+        renderYears();
+        notify(`${year} añadido. Completa sus tarifas y guarda los cambios.`);
+      }catch(error){ notify(error.message, true); }
+    }
+
+    async function removeVisibleYear(year){
+      if(!confirm(`¿Ocultar ${year} del calendario? Sus tarifas se conservarán en la configuración.`)) return;
+      try{
+        syncRateInputs();
+        const response = await fetch('/api/admin/years', {method:'DELETE',headers:headers(),body:JSON.stringify({year})});
+        const data = await response.json();
+        if(!response.ok || !data.ok) throw new Error(data.error || 'No se pudo ocultar el año');
+        years = data.years;
+        if(selectedRateYear === year) selectedRateYear = years[0];
+        renderYears();
+      }catch(error){ notify(error.message, true); }
     }
 
     let offers = [];
@@ -545,8 +656,14 @@
     }
 
     document.addEventListener('click', event=>{
+      const rateYearButton = event.target.closest('.rateYearBtn');
+      if(rateYearButton){ selectRateYear(Number(rateYearButton.dataset.rateYear)); return; }
+      const removeYearButton = event.target.closest('.remove-year');
+      if(removeYearButton){ removeVisibleYear(Number(removeYearButton.dataset.year)); return; }
       const remove = event.target.closest('.remove');
       if(!remove) return;
+      syncRateInputs();
+      syncConfigRows();
       const row = remove.closest('tr');
       const body = row.parentElement.id;
       const key = body==='seasonRows'?'seasons':body==='minimumRows'?'minimumStays':'manualBlocks';
@@ -573,7 +690,8 @@
       await save();
       await saveOffers();
     };
-    $('reload').onclick = load;
+    $('reload').onclick = async ()=>{ await load(); await loadYears(); await loadOffers(); };
+    $('addYear').onclick = addVisibleYear;
     $('addSeason').onclick = addSeason;
     $('addMinimum').onclick = addMinimum;
     $('addBlock').onclick = addBlock;

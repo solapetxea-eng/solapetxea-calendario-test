@@ -23,13 +23,34 @@ function defaultMinimumStaysForYear(year) {
   ];
 }
 
+const DEFAULT_UNIT_RATES = Object.freeze({
+  oketa: Object.freeze({ low: 95, high: 120 }),
+  orixol: Object.freeze({ low: 80, high: 90 }),
+});
+
+function ratesForYears(years, rates) {
+  return Object.fromEntries(years.map(year => [String(year), {
+    low: rates.low,
+    medium: rates.low,
+    high: rates.high,
+  }]));
+}
+
 function buildDefaultCalendarConfig(years = getRollingYears()) {
   return {
-    version: 1,
+    version: 2,
     singleOccupancyDiscount: 10,
     units: {
-      oketa: { name: 'Oketa', rates: { low: 95, high: 120 } },
-      orixol: { name: 'Orixol', rates: { low: 80, high: 90 } },
+      oketa: {
+        name: 'Oketa',
+        rates: { ...DEFAULT_UNIT_RATES.oketa },
+        ratesByYear: ratesForYears(years, DEFAULT_UNIT_RATES.oketa),
+      },
+      orixol: {
+        name: 'Orixol',
+        rates: { ...DEFAULT_UNIT_RATES.orixol },
+        ratesByYear: ratesForYears(years, DEFAULT_UNIT_RATES.orixol),
+      },
     },
     seasons: years.flatMap(defaultSeasonsForYear),
     minimumStays: years.flatMap(defaultMinimumStaysForYear),
@@ -55,28 +76,48 @@ function validDate(value) {
   return typeof value === 'string' && DATE_RE.test(value) ? value : '';
 }
 
-function yearFromDate(value) {
-  return validDate(value) ? Number(value.slice(0, 4)) : null;
-}
-
 function cleanRange(item) {
   const start = validDate(item?.start);
   const end = validDate(item?.end);
   return start && end && start <= end ? { start, end } : null;
 }
 
-export function sanitizeCalendarConfig(input = {}) {
-  const config = structuredClone(DEFAULT_CALENDAR_CONFIG);
+function validRateYear(value) {
+  const year = Number(value);
+  return Number.isInteger(year) && year >= 2000 && year <= 2100 ? year : null;
+}
+
+function sanitizeRatesByYear(incoming, legacyRates, years) {
+  const configuredYears = Object.keys(incoming || {}).map(validRateYear).filter(Boolean);
+  const allYears = [...new Set([...years, ...configuredYears])].sort((a, b) => a - b);
+  return Object.fromEntries(allYears.map(year => {
+    const yearRates = incoming?.[String(year)] || {};
+    const low = numberInRange(yearRates.low, legacyRates.low, 0, 10000);
+    return [String(year), {
+      low,
+      medium: numberInRange(yearRates.medium, low, 0, 10000),
+      high: numberInRange(yearRates.high, legacyRates.high, 0, 10000),
+    }];
+  }));
+}
+
+export function sanitizeCalendarConfig(input = {}, years = getRollingYears()) {
+  const activeYears = [...new Set(years.map(validRateYear).filter(Boolean))].sort((a, b) => a - b);
+  const safeYears = activeYears.length ? activeYears : getRollingYears();
+  const config = buildDefaultCalendarConfig(safeYears);
   config.singleOccupancyDiscount = numberInRange(input.singleOccupancyDiscount, 10, 0, 100);
 
   for (const unit of UNIT_IDS) {
     const incoming = input.units?.[unit] || {};
+    const defaultRates = DEFAULT_UNIT_RATES[unit];
+    const legacyRates = {
+      low: numberInRange(incoming.rates?.low, defaultRates.low, 0, 10000),
+      high: numberInRange(incoming.rates?.high, defaultRates.high, 0, 10000),
+    };
     config.units[unit] = {
       name: cleanText(incoming.name, config.units[unit].name, 40),
-      rates: {
-        low: numberInRange(incoming.rates?.low, config.units[unit].rates.low, 0, 10000),
-        high: numberInRange(incoming.rates?.high, config.units[unit].rates.high, 0, 10000),
-      },
+      rates: legacyRates,
+      ratesByYear: sanitizeRatesByYear(incoming.ratesByYear, legacyRates, safeYears),
     };
   }
 
@@ -86,7 +127,7 @@ export function sanitizeCalendarConfig(input = {}) {
     return [{
       id: cleanText(item.id, `season-${index + 1}`, 60),
       name: cleanText(item.name, `Temporada ${index + 1}`, 80),
-      type: item.type === 'high' ? 'high' : 'low',
+      type: ['low', 'medium', 'high'].includes(item.type) ? item.type : 'low',
       ...range,
     }];
   }) : config.seasons;
@@ -113,7 +154,7 @@ export function sanitizeCalendarConfig(input = {}) {
     }];
   }) : config.manualBlocks;
 
-  return ensureCalendarYears(config);
+  return ensureCalendarYears(config, safeYears);
 }
 
 export function ensureCalendarYears(config, years = getRollingYears()) {
@@ -122,6 +163,17 @@ export function ensureCalendarYears(config, years = getRollingYears()) {
   const minimumIds = new Set((next.minimumStays || []).map(item => item.id));
 
   for (const year of years) {
+    for (const unit of UNIT_IDS) {
+      const legacyRates = next.units?.[unit]?.rates || DEFAULT_UNIT_RATES[unit];
+      next.units[unit].ratesByYear ||= {};
+      if (!next.units[unit].ratesByYear[String(year)]) {
+        next.units[unit].ratesByYear[String(year)] = {
+          low: legacyRates.low,
+          medium: legacyRates.low,
+          high: legacyRates.high,
+        };
+      }
+    }
     for (const season of defaultSeasonsForYear(year)) {
       if (!seasonIds.has(season.id)) {
         next.seasons.push(season);
@@ -136,41 +188,28 @@ export function ensureCalendarYears(config, years = getRollingYears()) {
     }
   }
 
-  next.seasons = (next.seasons || []).filter(item => {
-    const startYear = yearFromDate(item.start);
-    const endYear = yearFromDate(item.end);
-    return years.includes(startYear) || years.includes(endYear);
-  });
-  next.minimumStays = (next.minimumStays || []).filter(item => {
-    const startYear = yearFromDate(item.start);
-    const endYear = yearFromDate(item.end);
-    return years.includes(startYear) || years.includes(endYear);
-  });
-  next.manualBlocks = (next.manualBlocks || []).filter(item => {
-    const startYear = yearFromDate(item.start);
-    const endYear = yearFromDate(item.end);
-    return years.includes(startYear) || years.includes(endYear);
-  });
-
   return next;
 }
 
 export async function readCalendarConfig(env) {
-  if (!env?.DB) return ensureCalendarYears(DEFAULT_CALENDAR_CONFIG);
+  const years = await getActiveYears(env);
+  if (!env?.DB) return sanitizeCalendarConfig(DEFAULT_CALENDAR_CONFIG, years);
 
   try {
     const row = await env.DB.prepare('SELECT value FROM app_config WHERE key = ?')
       .bind('calendar')
       .first();
-    return row?.value ? sanitizeCalendarConfig(JSON.parse(row.value)) : ensureCalendarYears(DEFAULT_CALENDAR_CONFIG);
+    return row?.value
+      ? sanitizeCalendarConfig(JSON.parse(row.value), years)
+      : sanitizeCalendarConfig(DEFAULT_CALENDAR_CONFIG, years);
   } catch {
-    return ensureCalendarYears(DEFAULT_CALENDAR_CONFIG);
+    return sanitizeCalendarConfig(DEFAULT_CALENDAR_CONFIG, years);
   }
 }
 
 export async function writeCalendarConfig(env, input) {
   if (!env?.DB) throw new Error('Falta configurar el binding D1 con el nombre DB.');
-  const config = sanitizeCalendarConfig(input);
+  const config = sanitizeCalendarConfig(input, await getActiveYears(env));
   await env.DB.prepare(`
     INSERT INTO app_config (key, value, updated_at)
     VALUES (?, ?, datetime('now'))
@@ -194,7 +233,18 @@ export function addManualBlocks(occupancy, config, year) {
 }
 
 export async function getActiveYears(env) {
-  return getRollingYears();
+  const fallback = getRollingYears();
+  if (!env?.DB) return fallback;
+
+  try {
+    const rows = await env.DB.prepare(
+      'SELECT year FROM active_years WHERE enabled = 1 ORDER BY year ASC'
+    ).all();
+    const years = (rows.results || []).map(row => validRateYear(row.year)).filter(Boolean);
+    return years.length ? [...new Set(years)] : fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 export async function readOffers(env) {

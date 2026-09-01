@@ -11,6 +11,7 @@
       document.write('<script src="./mock-api.js"><\/script>');
     }
   </script>
+  <script src="./calendar-pricing.js"></script>
 
   <!-- Google Analytics -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-X3MZXH82R2"></script>
@@ -34,6 +35,7 @@
       --full-a:#e66bb0;
       --full-b:#7157e8;
       --season-low:#2f7cff;
+      --season-medium:#e09f1f;
       --season-high:#111111;
       --shadow:0 8px 22px rgba(0,0,0,.08);
       --radius:18px;
@@ -104,6 +106,7 @@
     .dot.orixol{background:var(--orixol)}
     .dot.full{background:linear-gradient(135deg,var(--full-a) 49%,var(--full-b) 51%)}
     .dot.low{background:var(--season-low)}
+    .dot.medium{background:var(--season-medium)}
     .dot.high{background:var(--season-high)}
     .dot.past{background:var(--past)}
 
@@ -308,6 +311,7 @@
       z-index:1
     }
     .season.low{background:var(--season-low)}
+    .season.medium{background:var(--season-medium)}
     .season.high{background:var(--season-high)}
 
     .offer-badges{
@@ -617,6 +621,7 @@
       <div class="chip"><span class="dot full"></span> Completo</div>
       <div class="chip"><span class="dot past"></span> Día pasado</div>
       <div class="chip"><span class="dot low"></span> Temporada baja</div>
+      <div class="chip"><span class="dot medium"></span> Temporada media</div>
       <div class="chip"><span class="dot high"></span> Temporada alta</div>
     </div>
 
@@ -751,6 +756,7 @@
   const weekdayNames = ['dom','lun','mar','mié','jue','vie','sáb'];
   const dows = ['dom','lun','mar','mié','jue','vie','sáb'];
   const currentYear = new Date().getFullYear();
+  const pricing = globalThis.SolapetxeaPricing;
   const rollingYears = () => [new Date().getFullYear(), new Date().getFullYear() + 1];
   let availableYears = rollingYears();
   let year = availableYears.includes(currentYear) ? currentYear : availableYears[0];
@@ -861,8 +867,9 @@
       back: 'Volver',
       close: 'Cerrar',
       minStayFail: 'La estancia seleccionada no cumple las condiciones mínimas para los alojamientos disponibles.',
-      unitPrice_oketa: 'Oketa: {low} baja / {high} alta · Total orientativo: {total}',
-      unitPrice_orixol: 'Orixol: {low} baja / {high} alta · Total orientativo: {total}',
+      rateSummary: '{year}: {low} baja / {medium} media / {high} alta',
+      unitPrice_oketa: 'Oketa: {rates} · Total orientativo: {total}',
+      unitPrice_orixol: 'Orixol: {rates} · Total orientativo: {total}',
       waGreeting: 'Consulta de disponibilidad – Solapetxea',
       waAccommodation: 'Alojamiento',
       waCheckin: 'Entrada',
@@ -915,8 +922,9 @@
       back: 'Atzera',
       close: 'Itxi',
       minStayFail: 'Hautatutako egonaldiak ez ditu erabilgarri dauden ostatuen gutxieneko baldintzak betetzen.',
-      unitPrice_oketa: 'Oketa: {low} baxua / {high} altua · Guztira orientagarria: {total}',
-      unitPrice_orixol: 'Orixol: {low} baxua / {high} altua · Guztira orientagarria: {total}',
+      rateSummary: '{year}: {low} baxua / {medium} ertaina / {high} altua',
+      unitPrice_oketa: 'Oketa: {rates} · Guztira orientagarria: {total}',
+      unitPrice_orixol: 'Orixol: {rates} · Guztira orientagarria: {total}',
       waGreeting: 'Erabilgarritasun kontsulta – Solapetxea',
       waAccommodation: 'Ostatua',
       waCheckin: 'Sarrera',
@@ -969,8 +977,9 @@
       back: 'Back',
       close: 'Close',
       minStayFail: 'The selected stay does not meet the minimum stay conditions for the available accommodation.',
-      unitPrice_oketa: 'Oketa: {low} low / {high} high · Estimated total: {total}',
-      unitPrice_orixol: 'Orixol: {low} low / {high} high · Estimated total: {total}',
+      rateSummary: '{year}: {low} low / {medium} medium / {high} high',
+      unitPrice_oketa: 'Oketa: {rates} · Estimated total: {total}',
+      unitPrice_orixol: 'Orixol: {rates} · Estimated total: {total}',
       waGreeting: 'Availability enquiry – Solapetxea',
       waAccommodation: 'Accommodation',
       waCheckin: 'Check-in',
@@ -1051,10 +1060,7 @@
   }
 
   function getSeason(iso){
-    if(calendarConfig){
-      const matches = (calendarConfig.seasons || []).filter(item=>iso >= item.start && iso <= item.end);
-      return matches.some(item=>item.type === 'high') ? 'high' : 'low';
-    }
+    if(calendarConfig) return pricing.getSeason(calendarConfig, iso);
 
     const d = isoToDate(iso);
     const y = d.getFullYear();
@@ -1308,11 +1314,17 @@
   function selectYear(nextYear){
     if(!availableYears.includes(nextYear) || nextYear === year) return;
 
+    const selectedStartYear = Number(selectedStart.slice(0, 4));
+    const continuesIntoNextYear = !!selectedStart && !selectedEnd && nextYear === selectedStartYear + 1;
     year = nextYear;
     activeMonth = currentYear === year ? new Date().getMonth() : 0;
-    occupancyRaw = { orixol:{}, oketa:{} };
     dayStatus = {};
-    clearSelection();
+    if(!continuesIntoNextYear){
+      occupancyRaw = { orixol:{}, oketa:{} };
+      clearSelection();
+    } else {
+      statusEl.textContent = `Entrada seleccionada: ${formatDate(selectedStart)}. Elige la fecha de salida en ${nextYear}.`;
+    }
     updateYearNav();
     loadCalendar();
   }
@@ -1340,7 +1352,7 @@
   }
 
   function getApplicableOffer(unit, iso){
-    return activeOffers.find(o => o.unit === unit && o.start_date <= iso && iso < o.end_date);
+    return pricing.getApplicableOffer(activeOffers, unit, iso);
   }
 
   function getOffersForDate(iso){
@@ -1374,38 +1386,15 @@
   }
 
   function getNightRate(unit, iso){
-    const baseRate = (()=>{
-      const season = getSeason(iso);
-      const configuredRate = calendarConfig?.units?.[unit]?.rates?.[season];
-      if(Number.isFinite(Number(configuredRate))) return Number(configuredRate);
-      if(unit === 'oketa') return season === 'high' ? 120 : 95;
-      if(unit === 'orixol') return season === 'high' ? 90 : 80;
-      return 0;
-    })();
-    
-    const offer = getApplicableOffer(unit, iso);
-    if(offer){
-      if(offer.discount_type === 'fixed_price') return Number(offer.discount_value);
-      if(offer.discount_type === 'percentage'){
-        const discount = Number(offer.discount_value);
-        return Math.round(baseRate * (1 - discount / 100) * 100) / 100;
-      }
-    }
-    return baseRate;
+    return pricing.getNightRate(calendarConfig, activeOffers, unit, iso);
   }
 
   function getStayBasePrice(unit, startIso, endIso){
-    const nights = diffNights(startIso, endIso);
-    let total = 0;
-    for(let i=0; i<nights; i++) total += getNightRate(unit, addDays(startIso, i));
-    return total;
+    return pricing.getStayBasePrice(calendarConfig, activeOffers, unit, startIso, endIso);
   }
 
   function getAdjustedStayPrice(unit, startIso, endIso, guests){
-    const base = getStayBasePrice(unit, startIso, endIso);
-    const discount = Number(calendarConfig?.singleOccupancyDiscount ?? 10);
-    if(Number(guests) === 1) return Math.round(base * (1 - discount / 100) * 100) / 100;
-    return base;
+    return pricing.getAdjustedStayPrice(calendarConfig, activeOffers, unit, startIso, endIso, guests);
   }
 
   function euro(value){
@@ -1418,8 +1407,19 @@
 
   function getUnitPriceText(unit, startIso, endIso){
     const total = getStayBasePrice(unit, startIso, endIso);
-    const rates = calendarConfig?.units?.[unit]?.rates || (unit === 'oketa' ? { low:95, high:120 } : { low:80, high:90 });
-    return t(`unitPrice_${unit}`, { total: euro(total), low: euro(Number(rates.low)), high: euro(Number(rates.high)) });
+    const startYear = Number(startIso.slice(0, 4));
+    const lastNightYear = Number(addDays(endIso, -1).slice(0, 4));
+    const stayYears = startYear === lastNightYear ? [startYear] : [startYear, lastNightYear];
+    const rates = stayYears.map(rateYear=>{
+      const values = pricing.getRatesForYear(calendarConfig, unit, rateYear);
+      return t('rateSummary', {
+        year:rateYear,
+        low:euro(values.low),
+        medium:euro(values.medium),
+        high:euro(values.high)
+      });
+    }).join(' · ');
+    return t(`unitPrice_${unit}`, { total: euro(total), rates });
   }
 
   function describeOffer(offer, unit){
@@ -1649,8 +1649,6 @@
     updateMobileMonth();
   };
 
-  loadAvailableYears();
-
   document.getElementById('closeBtn').onclick = closeModal;
   document.getElementById('backBtn').onclick = ()=>{
     form.classList.remove('show');
@@ -1748,10 +1746,8 @@
       if(!res.ok || !json.ok) throw new Error(json.error || 'No se pudo cargar el calendario');
       if(requestedYear !== year) return;
 
-      occupancyRaw = {
-        orixol: json.occupancy?.orixol || {},
-        oketa: json.occupancy?.oketa || {}
-      };
+      occupancyRaw.orixol = { ...occupancyRaw.orixol, ...(json.occupancy?.orixol || {}) };
+      occupancyRaw.oketa = { ...occupancyRaw.oketa, ...(json.occupancy?.oketa || {}) };
       activeOffers = json.offers || [];
       applyConfiguredBlocks(occupancyRaw, requestedYear);
 
@@ -1778,7 +1774,7 @@
   });
 
   async function initialize(){
-    await loadCalendarConfig();
+    await Promise.all([loadCalendarConfig(), loadAvailableYears()]);
     updateModalTexts();
     updateYearNav();
     loadCalendar();
