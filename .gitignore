@@ -1,0 +1,33 @@
+# Cloudflare and local build state
+.wrangler/
+.pages-test-dist/
+node_modules/
+coverage/
+test-results/
+.cache/
+.tmp/
+*.log
+
+# Local environment variables and encrypted-input files
+.env
+.env.*
+!.env.example
+.dev.vars
+.dev.vars.*
+secrets*.json
+credentials*.json
+*.pem
+*.key
+
+# Database copies and private local material
+backups/
+private/
+*.sqlite
+*.sqlite3
+*.sqlite-*
+*.db
+*.db-shm
+*.db-wal
+
+# Editor-local files
+admin/*.code-workspace
