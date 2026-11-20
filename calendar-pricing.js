@@ -37,8 +37,43 @@
 
   function getApplicableOffer(offers, unit, iso) {
     return (offers || []).find(offer => (
-      offer.unit === unit && offer.start_date <= iso && iso < offer.end_date
+      offer.enabled !== false && offer.unit === unit && offer.start_date <= iso && iso < offer.end_date
     ));
+  }
+
+  function getNormalMinimumStay(config, unit, startIso) {
+    const matchingRules = (config?.minimumStays || []).filter(item => (
+      item.unit === unit && startIso >= item.start && startIso <= item.end
+    ));
+    return matchingRules.reduce((minimum, item) => Math.max(minimum, Number(item.nights) || 1), 1);
+  }
+
+  function getEffectiveMinimumStay(config, offers, unit, startIso) {
+    const offer = getApplicableOffer(offers, unit, startIso);
+    const offerMinimum = Number(offer?.minimum_stay);
+    return Number.isInteger(offerMinimum) && offerMinimum >= 1
+      ? offerMinimum
+      : getNormalMinimumStay(config, unit, startIso);
+  }
+
+  function getConsultableUnits(config, offers, units, startIso, endIso) {
+    const nights = diffNights(startIso, endIso);
+    if (nights < 1) return [];
+    return [...new Set(units || [])].filter(unit => (
+      nights >= getEffectiveMinimumStay(config, offers, unit, startIso)
+    ));
+  }
+
+  function getUnmetOfferMinimums(offers, units, startIso, endIso) {
+    const nights = diffNights(startIso, endIso);
+    if (nights < 1) return [];
+    return [...new Set(units || [])].flatMap(unit => {
+      const offer = getApplicableOffer(offers, unit, startIso);
+      const minimumStay = Number(offer?.minimum_stay);
+      return Number.isInteger(minimumStay) && minimumStay >= 1 && nights < minimumStay
+        ? [{ unit, offer, minimumStay }]
+        : [];
+    });
   }
 
   function getNightRate(config, offers, unit, iso) {
@@ -90,10 +125,14 @@
     diffNights,
     getAdjustedStayPrice,
     getApplicableOffer,
+    getConsultableUnits,
+    getEffectiveMinimumStay,
     getNightBaseRate,
     getNightRate,
+    getNormalMinimumStay,
     getRatesForYear,
     getSeason,
     getStayBasePrice,
+    getUnmetOfferMinimums,
   });
 })(globalThis);

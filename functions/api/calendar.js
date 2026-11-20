@@ -3,16 +3,53 @@
 
 import { addManualBlocks, readCalendarConfig, readOffers } from '../_shared/calendar-config.js';
 
-const ICALS = {
-  orixol: [
-    'https://ical.booking.com/v1/export?t=6d705df1-fdda-4556-86ea-f9ff4c66cf46',
-    'https://www.airbnb.es/calendar/ical/1294359505340084298.ics?t=9ed9b28b1d7043f09cb3de7f1979eea8',
-  ],
-  oketa: [
-    'https://ical.booking.com/v1/export?t=389f17a6-d584-4136-b7d0-9a74f3046ee5',
-    'https://www.airbnb.es/calendar/ical/1293618343719205245.ics?t=072c6f5c03b8402ab82a344d6d3875d3',
-  ],
-};
+const FEED_CONFIG = Object.freeze({
+  orixol: Object.freeze([
+    Object.freeze({
+      secretName: 'ICAL_ORIXOL_BOOKING',
+      missingErrorCode: 'ICAL_SECRET_MISSING_ORIXOL_BOOKING',
+      fetchErrorCode: 'ICAL_FETCH_FAILED_ORIXOL_BOOKING',
+    }),
+    Object.freeze({
+      secretName: 'ICAL_ORIXOL_AIRBNB',
+      missingErrorCode: 'ICAL_SECRET_MISSING_ORIXOL_AIRBNB',
+      fetchErrorCode: 'ICAL_FETCH_FAILED_ORIXOL_AIRBNB',
+    }),
+  ]),
+  oketa: Object.freeze([
+    Object.freeze({
+      secretName: 'ICAL_OKETA_BOOKING',
+      missingErrorCode: 'ICAL_SECRET_MISSING_OKETA_BOOKING',
+      fetchErrorCode: 'ICAL_FETCH_FAILED_OKETA_BOOKING',
+    }),
+    Object.freeze({
+      secretName: 'ICAL_OKETA_AIRBNB',
+      missingErrorCode: 'ICAL_SECRET_MISSING_OKETA_AIRBNB',
+      fetchErrorCode: 'ICAL_FETCH_FAILED_OKETA_AIRBNB',
+    }),
+  ]),
+});
+
+class SafeIcalError extends Error {
+  constructor(code) {
+    super(code);
+    this.name = 'SafeIcalError';
+    this.code = code;
+  }
+}
+
+function feedsFromEnv(env) {
+  return Object.fromEntries(Object.entries(FEED_CONFIG).map(([room, definitions]) => [
+    room,
+    definitions.map((definition) => {
+      const url = env?.[definition.secretName];
+      if (typeof url !== 'string' || url.trim() === '') {
+        throw new SafeIcalError(definition.missingErrorCode);
+      }
+      return Object.freeze({ url, fetchErrorCode: definition.fetchErrorCode });
+    }),
+  ]));
+}
 
 function pad(v) {
   return String(v).padStart(2, '0');
@@ -96,28 +133,46 @@ function parseIcsToOccupancy(icsText, year) {
   return occupied;
 }
 
-async function fetchOne(url) {
-  const res = await fetch(url, {
-    headers: {
-      'user-agent': 'Mozilla/5.0 SolapetxeaCalendar/1.0',
-      'accept': 'text/calendar,text/plain;q=0.9,*/*;q=0.8',
-    },
-    cf: { cacheTtl: 300, cacheEverything: true },
-  });
-  if (!res.ok) {
-    throw new Error(`Error al leer iCal (${res.status}) en ${url}`);
+async function fetchOne(feed) {
+  try {
+    const response = await fetch(feed.url, {
+      headers: {
+        'user-agent': 'Mozilla/5.0 SolapetxeaCalendar/1.0',
+        'accept': 'text/calendar,text/plain;q=0.9,*/*;q=0.8',
+      },
+      cf: { cacheTtl: 300, cacheEverything: true },
+    });
+    if (!response.ok) throw new SafeIcalError(feed.fetchErrorCode);
+    return await response.text();
+  } catch {
+    throw new SafeIcalError(feed.fetchErrorCode);
   }
-  return await res.text();
 }
 
-async function loadRoom(urls, year) {
+async function loadRoom(feeds, year) {
   const merged = {};
-  const texts = await Promise.all(urls.map(fetchOne));
-  for (const txt of texts) {
-    const occ = parseIcsToOccupancy(txt, year);
-    Object.assign(merged, occ);
+  const texts = await Promise.all(feeds.map(fetchOne));
+  for (const text of texts) {
+    const occupancy = parseIcsToOccupancy(text, year);
+    Object.assign(merged, occupancy);
   }
   return merged;
+}
+
+function safeErrorCode(error) {
+  return error instanceof SafeIcalError ? error.code : 'ICAL_LOAD_FAILED';
+}
+
+async function loadOccupancy(env, year) {
+  if (env?.CALENDAR_DATA_MODE === 'synthetic') {
+    return { orixol: {}, oketa: {} };
+  }
+  const feeds = feedsFromEnv(env);
+  const [orixol, oketa] = await Promise.all([
+    loadRoom(feeds.orixol, year),
+    loadRoom(feeds.oketa, year),
+  ]);
+  return { orixol, oketa };
 }
 
 export async function onRequestGet(context) {
@@ -125,35 +180,33 @@ export async function onRequestGet(context) {
   const year = Number(url.searchParams.get('year') || new Date().getUTCFullYear());
 
   try {
-    const [orixol, oketa, config, offers] = await Promise.all([
-      loadRoom(ICALS.orixol, year),
-      loadRoom(ICALS.oketa, year),
+    const [loadedOccupancy, config, offers] = await Promise.all([
+      loadOccupancy(context.env, year),
       readCalendarConfig(context.env),
       readOffers(context.env),
     ]);
-    const occupancy = addManualBlocks({ orixol, oketa }, config, year);
+    const occupancy = addManualBlocks(loadedOccupancy, config, year);
 
     const body = JSON.stringify({
       ok: true,
       year,
       cached_minutes: 5,
+      data_mode: context.env?.CALENDAR_DATA_MODE === 'synthetic' ? 'synthetic' : 'live',
       occupancy,
       offers: offers || [],
       updated_at: new Date().toISOString(),
     });
 
-    const response = new Response(body, {
+    return new Response(body, {
       headers: {
         'content-type': 'application/json; charset=utf-8',
         'cache-control': 'no-store',
       },
     });
-
-    return response;
-  } catch (err) {
+  } catch (error) {
     return new Response(JSON.stringify({
       ok: false,
-      error: err instanceof Error ? err.message : 'Error desconocido cargando iCal',
+      error: safeErrorCode(error),
     }), {
       status: 500,
       headers: {

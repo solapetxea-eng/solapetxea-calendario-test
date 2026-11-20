@@ -252,12 +252,19 @@ export async function readOffers(env) {
 
   try {
     const rows = await env.DB.prepare(
-      'SELECT id, unit, start_date, end_date, name, discount_type, discount_value, enabled FROM offers WHERE enabled = 1 ORDER BY start_date ASC'
+      'SELECT id, unit, start_date, end_date, name, discount_type, discount_value, minimum_stay, enabled FROM offers WHERE enabled = 1 ORDER BY start_date ASC'
     ).all();
     return rows.results || [];
   } catch {
     return [];
   }
+}
+
+export function getPublicCalendarConfig(config) {
+  return {
+    ...config,
+    manualBlocks: (config?.manualBlocks || []).map(({ note, ...block }) => block),
+  };
 }
 
 export function getApplicableOffers(unit, startDate, offers) {

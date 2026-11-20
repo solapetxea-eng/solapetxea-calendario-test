@@ -21,6 +21,7 @@
       try {
         const data = JSON.parse(stored);
         Object.assign(mockDB, data);
+        mockDB.offers = (mockDB.offers || []).map(normalizeOffer);
       } catch (e) {
         console.warn('Error loading mock data:', e);
       }
@@ -63,6 +64,42 @@
     return config;
   }
 
+  function normalizeOffer(offer) {
+    const minimum = offer.minimum_stay;
+    return {
+      ...offer,
+      minimum_stay: minimum === null || minimum === undefined || minimum === '' ? null : Number(minimum),
+      enabled: offer.enabled !== false,
+    };
+  }
+
+  function hasMinimumStayConflict(candidate, excludedId = '') {
+    if (!candidate.enabled || candidate.minimum_stay === null) return false;
+    return mockDB.offers.some(existing => (
+      existing.id !== excludedId
+      && existing.enabled !== false
+      && existing.unit === candidate.unit
+      && existing.start_date < candidate.end_date
+      && existing.end_date > candidate.start_date
+      && existing.minimum_stay !== null
+      && existing.minimum_stay !== undefined
+      && Number(existing.minimum_stay) !== candidate.minimum_stay
+    ));
+  }
+
+  function validateOfferMinimum(offer) {
+    return offer.minimum_stay === null || (
+      Number.isInteger(offer.minimum_stay) && offer.minimum_stay >= 1 && offer.minimum_stay <= 60
+    );
+  }
+
+  function publicCalendarConfig(config) {
+    return {
+      ...config,
+      manualBlocks: (config.manualBlocks || []).map(({ note, ...block }) => block),
+    };
+  }
+
   // Handlers de API
   const apiHandlers = {
     '/api/calendar': function(req, body) {
@@ -90,7 +127,7 @@
     '/api/settings': function(req, body) {
       return {
         ok: true,
-        config: mockDB.calendar || getDefaultConfig(mockDB.years)
+        config: publicCalendarConfig(mockDB.calendar || getDefaultConfig(mockDB.years))
       };
     },
 
@@ -146,7 +183,13 @@
           return { ok: false, error: 'Fechas invalidas.' };
         }
         const id = `offer-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-        const offer = { ...body, id, enabled: body.enabled !== false };
+        const offer = normalizeOffer({ ...body, id });
+        if (!validateOfferMinimum(offer)) {
+          return { ok: false, error: 'La estancia mínima debe ser un número entero entre 1 y 60.' };
+        }
+        if (hasMinimumStayConflict(offer)) {
+          return { ok: false, error: 'Existe otra oferta activa solapada con una estancia mínima distinta.' };
+        }
         mockDB.offers.push(offer);
         saveMockData();
         return { ok: true, id, offer };
@@ -154,7 +197,14 @@
       if (req.method === 'PUT' && body) {
         const idx = mockDB.offers.findIndex(o => o.id === body.id);
         if (idx >= 0) {
-          mockDB.offers[idx] = body;
+          const offer = normalizeOffer(body);
+          if (!validateOfferMinimum(offer)) {
+            return { ok: false, error: 'La estancia mínima debe ser un número entero entre 1 y 60.' };
+          }
+          if (hasMinimumStayConflict(offer, body.id)) {
+            return { ok: false, error: 'Existe otra oferta activa solapada con una estancia mínima distinta.' };
+          }
+          mockDB.offers[idx] = offer;
           saveMockData();
         }
         return { ok: true };

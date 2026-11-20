@@ -522,6 +522,7 @@
     }
     .offerNotice.oketa{border-color:var(--oketa);background:#fff0f8}
     .offerNotice.orixol{border-color:var(--orixol);background:#f4f1ff}
+    .offerNotice.minimumNotice{border-color:#b7791f;background:#fffbeb}
     .offerNoticeTitle{
       font-size:18px;
       font-weight:900;
@@ -674,6 +675,11 @@
     <div id="rangeOfferNotice" class="offerNotice" style="display:none;">
       <div class="offerNoticeTitle" id="rangeOfferNoticeTitle"></div>
       <div class="offerNoticeText" id="rangeOfferNoticeText"></div>
+    </div>
+
+    <div id="rangeMinimumNotice" class="offerNotice minimumNotice" style="display:none;">
+      <div class="offerNoticeTitle" id="rangeMinimumNoticeTitle"></div>
+      <div class="offerNoticeText" id="rangeMinimumNoticeText"></div>
     </div>
 
     <div class="choiceWrap" id="choices"></div>
@@ -860,6 +866,8 @@
       offerNoticePercent: 'Descuento aplicado: {value} en {unit}.',
       offerNoticeMixed: 'Oferta aplicada a parte de tu estancia en {unit}.',
       offerNoticeAvailable: '{unit}: {name}',
+      offerMinimumNoticeTitle: 'Condición de oferta',
+      offerMinimumNotMet: 'Oferta {unit}: estancia mínima {nights} noches. No se aplica a la selección actual.',
       message: 'Mensaje',
       messagePlaceholder: 'Escribe aquí si quieres añadir algo',
       helper: 'Vamos a abrir WhatsApp con tu consulta preparada.<br>Solo tendrás que pulsar enviar.',
@@ -915,6 +923,8 @@
       offerNoticePercent: 'Deskontua aplikatuta: {value} {unit} ostatuan.',
       offerNoticeMixed: 'Eskaintza zure egonaldiaren zati bati aplikatuta {unit} ostatuan.',
       offerNoticeAvailable: '{unit}: {name}',
+      offerMinimumNoticeTitle: 'Eskaintzaren baldintza',
+      offerMinimumNotMet: '{unit} eskaintza: gutxieneko egonaldia {nights} gau. Ez zaio uneko hautaketari aplikatzen.',
       message: 'Mezua',
       messagePlaceholder: 'Idatzi hemen zerbait gehitu nahi baduzu',
       helper: 'Zure kontsulta prestatuta duen WhatsApp irekiko dugu.<br>Bidali sakatu besterik ez duzu egin beharko.',
@@ -970,6 +980,8 @@
       offerNoticePercent: 'Discount applied: {value} at {unit}.',
       offerNoticeMixed: 'Offer applied to part of your stay at {unit}.',
       offerNoticeAvailable: '{unit}: {name}',
+      offerMinimumNoticeTitle: 'Offer condition',
+      offerMinimumNotMet: '{unit} offer: minimum stay {nights} nights. It does not apply to the current selection.',
       message: 'Message',
       messagePlaceholder: 'Write here if you want to add something',
       helper: 'We are about to open WhatsApp with your enquiry prepared.<br>You will only need to press send.',
@@ -1330,12 +1342,7 @@
   }
 
   function getMinNights(unit, startIso){
-    if(calendarConfig){
-      const matchingRules = (calendarConfig.minimumStays || []).filter(item=>{
-        return item.unit === unit && startIso >= item.start && startIso <= item.end;
-      });
-      return matchingRules.reduce((minimum, item)=>Math.max(minimum, Number(item.nights) || 1), 1);
-    }
+    if(calendarConfig) return pricing.getEffectiveMinimumStay(calendarConfig, activeOffers, unit, startIso);
 
     const d = isoToDate(startIso);
     const m = d.getMonth()+1;
@@ -1371,18 +1378,14 @@
     return [...found.values()];
   }
 
-  function offerCoversStay(unit, startIso, endIso){
-    const nights = diffNights(startIso, endIso);
-    if(nights < 1) return false;
-    for(let i=0; i<nights; i++){
-      if(!getApplicableOffer(unit, addDays(startIso, i))) return false;
-    }
-    return true;
-  }
-
   function canConsultUnit(unit, startIso, endIso){
     const nights = diffNights(startIso, endIso);
-    return nights >= getMinNights(unit, startIso) || offerCoversStay(unit, startIso, endIso);
+    if(!calendarConfig) return nights >= getMinNights(unit, startIso);
+    return pricing.getConsultableUnits(calendarConfig, activeOffers, [unit], startIso, endIso).includes(unit);
+  }
+
+  function getConsultableModalUnits(){
+    return currentModalUnits.filter(unit => canConsultUnit(unit, selectedStart, selectedEnd));
   }
 
   function getNightRate(unit, iso){
@@ -1466,11 +1469,11 @@
   }
 
   function updateRangeOfferNotice(){
-    if(!selectedStart || !selectedEnd || !currentModalUnits.length){
+    if(selectedUnit || !selectedStart || !selectedEnd || !currentModalUnits.length){
       hideOfferNotice('rangeOfferNotice');
       return;
     }
-    const offersByUnit = currentModalUnits.flatMap(unit => getOffersForRange(unit, selectedStart, selectedEnd).map(offer => ({...offer, unit})));
+    const offersByUnit = getConsultableModalUnits().flatMap(unit => getOffersForRange(unit, selectedStart, selectedEnd).map(offer => ({...offer, unit})));
     const unique = new Map();
     offersByUnit.forEach(offer => unique.set(`${offer.unit}-${offer.id || offer.start_date + offer.end_date + offer.name}`, offer));
     const matchingOffers = [...unique.values()];
@@ -1491,6 +1494,28 @@
       name: offer.name || describeOffer(offer, offer.unit)
     })).join(' · ');
     notice.className = 'offerNotice';
+    notice.style.display = 'block';
+  }
+
+  function updateRangeMinimumNotice(){
+    if(selectedUnit || !selectedStart || !selectedEnd || !currentModalUnits.length){
+      hideOfferNotice('rangeMinimumNotice');
+      return;
+    }
+    const unmetMinimums = pricing.getUnmetOfferMinimums(activeOffers, currentModalUnits, selectedStart, selectedEnd);
+    const notice = document.getElementById('rangeMinimumNotice');
+    const title = document.getElementById('rangeMinimumNoticeTitle');
+    const text = document.getElementById('rangeMinimumNoticeText');
+    if(!notice || !title || !text || !unmetMinimums.length){
+      hideOfferNotice('rangeMinimumNotice');
+      return;
+    }
+    title.textContent = t('offerMinimumNoticeTitle');
+    text.textContent = unmetMinimums.map(item => t('offerMinimumNotMet', {
+      unit: getUnitName(item.unit),
+      nights: item.minimumStay
+    })).join(' · ');
+    notice.className = 'offerNotice minimumNotice';
     notice.style.display = 'block';
   }
 
@@ -1517,16 +1542,13 @@
 
   function renderChoiceButtons(){
     choices.innerHTML = '';
+    const consultableUnits = getConsultableModalUnits();
 
-    if(currentModalUnits.includes('oketa')){
-      if(canConsultUnit('oketa', selectedStart, selectedEnd)){
-        addChoice(t('consult_oketa'), 'oketa');
-      }
+    if(consultableUnits.includes('oketa')){
+      addChoice(t('consult_oketa'), 'oketa');
     }
-    if(currentModalUnits.includes('orixol')){
-      if(canConsultUnit('orixol', selectedStart, selectedEnd)){
-        addChoice(t('consult_orixol'), 'orixol');
-      }
+    if(consultableUnits.includes('orixol')){
+      addChoice(t('consult_orixol'), 'orixol');
     }
   }
 
@@ -1559,10 +1581,11 @@
 
     if(selectedStart && selectedEnd){
       const priceLines = [];
-      if(currentModalUnits.includes('oketa') && canConsultUnit('oketa', selectedStart, selectedEnd)){
+      const consultableUnits = getConsultableModalUnits();
+      if(consultableUnits.includes('oketa')){
         priceLines.push(getUnitPriceText('oketa', selectedStart, selectedEnd));
       }
-      if(currentModalUnits.includes('orixol') && canConsultUnit('orixol', selectedStart, selectedEnd)){
+      if(consultableUnits.includes('orixol')){
         priceLines.push(getUnitPriceText('orixol', selectedStart, selectedEnd));
       }
 
@@ -1575,6 +1598,7 @@
 
     renderChoiceButtons();
     updateRangeOfferNotice();
+    updateRangeMinimumNotice();
 
     if(selectedUnit){
       formTitle.textContent = selectedUnit === 'oketa' ? t('formTitle_oketa') : t('formTitle_orixol');
@@ -1598,6 +1622,7 @@
     form.classList.remove('show');
     document.getElementById('offerNotice').style.display = 'none';
     document.getElementById('rangeOfferNotice').style.display = 'none';
+    document.getElementById('rangeMinimumNotice').style.display = 'none';
     closeArea.style.display = 'flex';
 
     updateModalTexts();
@@ -1618,6 +1643,8 @@
     formTitle.textContent = type === 'oketa' ? t('formTitle_oketa') : t('formTitle_orixol');
     form.classList.add('show');
     closeArea.style.display = 'none';
+    updateRangeOfferNotice();
+    updateRangeMinimumNotice();
     updateFormPrice();
 
     track(type === 'oketa' ? 'select_oketa' : 'select_orixol', {
@@ -1651,8 +1678,10 @@
 
   document.getElementById('closeBtn').onclick = closeModal;
   document.getElementById('backBtn').onclick = ()=>{
+    selectedUnit = '';
     form.classList.remove('show');
     closeArea.style.display = 'flex';
+    updateModalTexts();
   };
   clearSelectionBtn.onclick = clearSelection;
   guestsInput.addEventListener('change', updateFormPrice);

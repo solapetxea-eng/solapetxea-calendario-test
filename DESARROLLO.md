@@ -201,3 +201,19 @@ Para **borrar todos los datos de prueba**:
 ---
 
 ¿Necesitas ayuda? Revisa la consola (F12) para ver logs del mock API.
+
+## Estancia mínima propia de una oferta
+
+Cada oferta puede guardar `minimum_stay` como un entero de 1 a 60 noches o como
+`NULL` para usar el mínimo normal del calendario.
+
+- La oferta activa aplicable en la fecha de entrada fija el mínimo de toda la estancia.
+- Si la entrada está fuera de la oferta, se usa el mínimo normal aunque noches posteriores tengan descuento.
+- Si la entrada está dentro, el mínimo de la oferta se mantiene aunque la salida quede fuera del periodo.
+- La fecha `end_date` continúa siendo checkout y no está incluida.
+- Los precios y descuentos continúan calculándose noche a noche.
+- Se rechazan ofertas activas solapadas del mismo alojamiento cuando ambas tienen mínimos propios diferentes.
+- Ofertas antiguas o sin mínimo propio conservan el comportamiento normal del calendario.
+
+Antes de desplegar esta versión se debe aplicar la migración aditiva
+`migrations/0004_offer_minimum_stay.sql` a la base D1 exclusiva del entorno de test.

@@ -158,7 +158,7 @@
         <div><h2>Ofertas especiales</h2><p class="hint">Crea ofertas para cubrir huecos con precios especiales o descuentos.</p></div>
         <button class="btn small" id="addOffer" type="button">+ Añadir oferta</button>
       </div>
-      <div class="tableWrap"><table><thead><tr><th>Alojamiento</th><th>Desde</th><th>Hasta</th><th>Nombre</th><th>Tipo</th><th>Valor</th><th>Activa</th><th></th></tr></thead><tbody id="offerRows"></tbody></table></div>
+      <div class="tableWrap"><table><thead><tr><th>Alojamiento</th><th>Desde</th><th>Hasta</th><th>Nombre</th><th>Tipo</th><th>Valor</th><th>Estancia mínima</th><th>Activa</th><th></th></tr></thead><tbody id="offerRows"></tbody></table></div>
       
       <!-- Modal para crear/editar oferta -->
       <div id="offerModal" class="modal" style="display:none;">
@@ -204,7 +204,13 @@
               <input type="number" id="offerValue" min="0" step="0.01" placeholder="0" required>
               <small id="offerValueExample">Ej: 50 € por noche</small>
             </div>
-            
+
+            <div class="form-group">
+              <label for="offerMinimumStay">Estancia mínima de la oferta</label>
+              <input type="number" id="offerMinimumStay" min="1" max="60" step="1" placeholder="Usar mínimo normal">
+              <small>Si se indica, sustituye al mínimo normal del calendario durante esta oferta.</small>
+            </div>
+
             <div class="form-group checkbox">
               <input type="checkbox" id="offerEnabled" checked>
               <label for="offerEnabled">✓ Oferta activa</label>
@@ -268,7 +274,7 @@
         ...document.querySelectorAll('select'),
         ...document.querySelectorAll('.rateYearBtn'),
         ...document.querySelectorAll('.remove-year'),
-        $('addYear'), $('addSeason'), $('addMinimum'), $('addBlock'),
+        $('addYear'), $('addSeason'), $('addMinimum'), $('addBlock'), $('addOffer'),
         $('saveTop'), $('saveBottom')
       ];
       controls.forEach(ctrl => ctrl.disabled = disabled);
@@ -525,10 +531,11 @@
           <td><input data-field="name" value="${esc(item.name)}" placeholder="Ej: Oferta última hora"></td>
           <td><select data-field="discount_type"><option value="fixed_price" ${item.discount_type==='fixed_price'?'selected':''}>Precio fijo</option><option value="percentage" ${item.discount_type==='percentage'?'selected':''}>% Descuento</option></select></td>
           <td><input data-field="discount_value" type="number" min="0" step="0.01" value="${Number(item.discount_value)}"></td>
+          <td><input data-field="minimum_stay" type="number" min="1" max="60" step="1" value="${item.minimum_stay ?? ''}" placeholder="Usar mínimo normal" title="Si se indica, sustituye al mínimo normal del calendario durante esta oferta."></td>
           <td><input type="checkbox" data-field="enabled" ${item.enabled?'checked':''}></td>
           <td class="actions"><button class="btn danger remove-offer" type="button">Eliminar</button></td>
         </tr>
-      `).join('') || '<tr><td class="empty" colspan="8">No hay ofertas.</td></tr>';
+      `).join('') || '<tr><td class="empty" colspan="9">No hay ofertas.</td></tr>';
     }
 
     async function saveOffers(){
@@ -542,15 +549,18 @@
           const name = row.querySelector('[data-field="name"]').value;
           const discount_type = row.querySelector('[data-field="discount_type"]').value;
           const discount_value = Number(row.querySelector('[data-field="discount_value"]').value);
+          const minimumStayInput = row.querySelector('[data-field="minimum_stay"]').value;
+          const minimum_stay = minimumStayInput === '' ? null : Number(minimumStayInput);
           const enabled = row.querySelector('[data-field="enabled"]').checked;
           
           if(!start_date || !end_date || start_date >= end_date) throw new Error('Revisa las fechas de las ofertas');
           if(!name) throw new Error('Todas las ofertas deben tener un nombre');
+          if(minimum_stay !== null && (!Number.isInteger(minimum_stay) || minimum_stay < 1 || minimum_stay > 60)) throw new Error('La estancia mínima debe ser un número entero entre 1 y 60');
           
           const response = await fetch('/api/admin/offers', {
             method:'PUT',
             headers:headers(),
-            body:JSON.stringify({id, unit, start_date, end_date, name, discount_type, discount_value, enabled})
+            body:JSON.stringify({id, unit, start_date, end_date, name, discount_type, discount_value, minimum_stay, enabled})
           });
           const data = await response.json();
           if(!response.ok || !data.ok) throw new Error(data.error || 'Error guardando oferta');
@@ -572,6 +582,7 @@
       document.getElementById('offerName').value = '';
       document.getElementById('offerType').value = 'fixed_price';
       document.getElementById('offerValue').value = '50';
+      document.getElementById('offerMinimumStay').value = '';
       document.getElementById('offerEnabled').checked = true;
       updateOfferValueHint();
       document.getElementById('offerModal').style.display = 'flex';
@@ -600,6 +611,8 @@
         const name = document.getElementById('offerName').value;
         const discount_type = document.getElementById('offerType').value;
         const discount_value = Number(document.getElementById('offerValue').value);
+        const minimumStayInput = document.getElementById('offerMinimumStay').value;
+        const minimum_stay = minimumStayInput === '' ? null : Number(minimumStayInput);
         const enabled = document.getElementById('offerEnabled').checked;
 
         console.log('📝 Creando oferta:', {unit, start_date, end_date, name, discount_type, discount_value, enabled});
@@ -610,13 +623,14 @@
         if(!name.trim()) throw new Error('Escribe un nombre para la oferta');
         if(discount_type === 'fixed_price' && discount_value <= 0) throw new Error('El precio debe ser mayor que 0');
         if(discount_type === 'percentage' && (discount_value <= 0 || discount_value > 100)) throw new Error('El descuento debe estar entre 1 y 100%');
+        if(minimum_stay !== null && (!Number.isInteger(minimum_stay) || minimum_stay < 1 || minimum_stay > 60)) throw new Error('La estancia mínima debe ser un número entero entre 1 y 60');
 
         console.log('✅ Validaciones OK, enviando a servidor...');
 
         const response = await fetch('/api/admin/offers', {
           method:'POST',
           headers:headers(),
-          body:JSON.stringify({unit, start_date, end_date, name, discount_type, discount_value, enabled})
+          body:JSON.stringify({unit, start_date, end_date, name, discount_type, discount_value, minimum_stay, enabled})
         });
         
         console.log('📡 Respuesta del servidor:', response.status, response.ok);
@@ -627,7 +641,7 @@
         if(!response.ok || !data.ok) throw new Error(data.error || 'Error creando oferta');
         
         console.log('🎉 Oferta creada exitosamente');
-        const createdOffer = data.offer || {id:data.id, unit, start_date, end_date, name:name.trim(), discount_type, discount_value, enabled};
+        const createdOffer = data.offer || {id:data.id, unit, start_date, end_date, name:name.trim(), discount_type, discount_value, minimum_stay, enabled};
         offers = [createdOffer, ...offers.filter(item => item.id !== createdOffer.id)];
         renderOffers();
         closeOfferModal();
